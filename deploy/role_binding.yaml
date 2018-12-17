@@ -1,0 +1,11 @@
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kanary
+subjects:
+- kind: ServiceAccount
+  name: kanary
+roleRef:
+  kind: Role
+  name: kanary
+  apiGroup: rbac.authorization.k8s.io
