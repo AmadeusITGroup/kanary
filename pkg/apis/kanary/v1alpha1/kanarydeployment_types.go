@@ -74,11 +74,11 @@ type DeploymentTemplate struct {
 // use to perform the canary deployment. It includes any additional parameters necessary to
 // perform the canary deployment for the indicated strategy.
 type KanaryDeploymentStrategy struct {
-	// kanaryServiceName is the name of the service that will be created to target specificaly
+	// ServiceName is the name of the service that will be created to target specificaly
 	// pods that serve the canary service version.
 	// if kanaryServiceName is empty or not define, a service name will be generated from the
 	// serviceName provided in the KanaryDeploymentSpec.
-	KanaryServiceName string `json:"kanaryServiceName,omitempty"`
+	ServiceName string `json:"serviceName,omitempty"`
 }
 
 // KanaryDeploymentCondition describes the state of a deployment at a certain point.
@@ -104,13 +104,13 @@ type KanaryDeploymentConditionType string
 const (
 	// Available means the deployment is available, ie. at least the minimum available
 	// replicas required are up and running for at least minReadySeconds.
-	KanaryDeploymentAvailable KanaryDeploymentConditionType = "Available"
+	AvailableKanaryDeploymentConditionType KanaryDeploymentConditionType = "Available"
 	// Progressing means the deployment is progressing. Progress for a deployment is
 	// considered when a new canary deployment is created, and when new pods scale
 	// up. Progress is not estimated for paused deployments or
 	// when progressDeadlineSeconds is not specified.
-	KanaryDeploymentProgressing KanaryDeploymentConditionType = "Progressing"
-	// DeploymentKanaryFailure is added in a kanarydeployment when the canary deployment
+	ProgressingKanaryDeploymentConditionType KanaryDeploymentConditionType = "Progressing"
+	// FailureKanaryDeploymentConditionType is added in a kanarydeployment when the canary deployment
 	// process failed.
-	KanaryDeploymentFailure KanaryDeploymentConditionType = "Failure"
+	FailureKanaryDeploymentConditionType KanaryDeploymentConditionType = "Failure"
 )
