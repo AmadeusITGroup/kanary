@@ -1,0 +1,7 @@
+apiVersion: kanary.k8s.io/v1alpha1
+kind: KanaryDeployment
+metadata:
+  name: example-kanarydeployment
+spec:
+  # Add fields here
+  size: 3
