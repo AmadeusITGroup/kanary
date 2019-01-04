@@ -53,7 +53,11 @@ func main() {
 	}
 
 	// Become the leader before proceeding
-	leader.Become(context.TODO(), "kanary-lock")
+	err = leader.Become(context.TODO(), "kanary-lock")
+	if err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
 
 	r := ready.NewFileReady()
 	err = r.Set()
@@ -61,7 +65,12 @@ func main() {
 		log.Error(err, "")
 		os.Exit(1)
 	}
-	defer r.Unset()
+	defer func() {
+		errDefer := r.Unset()
+		if errDefer != nil {
+			log.Error(errDefer, "")
+		}
+	}()
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{Namespace: namespace})
