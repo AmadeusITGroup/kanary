@@ -19,10 +19,12 @@ import (
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
+// Interface represent the strategy interface
 type Interface interface {
 	Manage(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (result reconcile.Result, err error)
 }
 
+// NewStrategy return new instance of the strategy
 func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 	var scaleImpl scale.Interface
 	if spec.Scale.Static != nil {
@@ -31,17 +33,14 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 
 	var trafficImpls []traffic.Interface
 	switch spec.Traffic.Source {
-	case kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource:
-		trafficImpls = append(trafficImpls, traffic.NewLive(&spec.Traffic))
-	case kanaryv1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource:
+	case kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource:
 		trafficImpls = append(trafficImpls, traffic.NewKanaryService(&spec.Traffic))
-	case kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource:
-		trafficImpls = append(trafficImpls, traffic.NewKanaryService(&spec.Traffic))
-		trafficImpls = append(trafficImpls, traffic.NewLive(&spec.Traffic))
 	case kanaryv1alpha1.ShadowKanaryDeploymentSpecTrafficSource:
 		trafficImpls = append(trafficImpls, traffic.NewShadow(&spec.Traffic))
 	default:
+
 	}
+	trafficImpls = append(trafficImpls, traffic.NewCleanup(&spec.Traffic))
 
 	var validationImpl validation.Interface
 	if spec.Validation.Manual != nil {

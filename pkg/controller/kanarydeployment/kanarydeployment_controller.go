@@ -22,6 +22,7 @@ import (
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies/traffic"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
@@ -148,7 +149,7 @@ func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger log
 	deployment := &appsv1beta1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: kd.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
-		deployment, err = utils.NewCanaryDeploymentForKanaryDeployment(kd, r.scheme, false)
+		deployment, err = utils.NewCanaryDeploymentForKanaryDeployment(kd, r.scheme, false, traffic.NewOverwriteSelector(kd))
 		if err != nil {
 			reqLogger.Error(err, "failed to create the Deployment artifact", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 			return deployment, true, reconcile.Result{}, err

@@ -9,6 +9,7 @@ import (
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -60,10 +61,10 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 
 	if service != nil {
 		switch k.conf.Source {
-		case kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource:
-		case kanaryv1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource:
-			kanaryService := utils.NewCanaryServiceForKanaryDeployment(kd, service)
-			err = kclient.Get(context.TODO(), types.NamespacedName{Name: kanaryService.Name, Namespace: kanaryService.Namespace}, kanaryService)
+		case kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource:
+			kanaryService := utils.NewCanaryServiceForKanaryDeployment(kd, service, NewOverwriteSelector(kd))
+			currentKanaryService := &corev1.Service{}
+			err = kclient.Get(context.TODO(), types.NamespacedName{Name: kanaryService.Name, Namespace: kanaryService.Namespace}, currentKanaryService)
 			if err != nil && errors.IsNotFound(err) {
 				reqLogger.Info("Creating a new Canary Service", "Service.Namespace", kanaryService.Namespace, "Service.Name", kanaryService.Name)
 				err = kclient.Create(context.TODO(), kanaryService)
@@ -76,8 +77,38 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 			} else if err != nil {
 				reqLogger.Error(err, "failed to get Service")
 				return service, true, reconcile.Result{}, err
+			} else {
+				compareKanaryServiceSpec := kanaryService.Spec.DeepCopy()
+				compareCurrentServiceSpec := currentKanaryService.Spec.DeepCopy()
+				{
+					// remove potential values updated in service.Spec
+					compareCurrentServiceSpec.ClusterIP = ""
+					compareCurrentServiceSpec.LoadBalancerIP = ""
+				}
+				if !apiequality.Semantic.DeepEqual(compareKanaryServiceSpec, compareCurrentServiceSpec) {
+					updatedService := currentKanaryService.DeepCopy()
+					updatedService.Spec = *compareKanaryServiceSpec
+					updatedService.Spec.ClusterIP = currentKanaryService.Spec.ClusterIP
+					updatedService.Spec.LoadBalancerIP = currentKanaryService.Spec.LoadBalancerIP
+					err = kclient.Update(context.TODO(), updatedService)
+					if err != nil {
+						reqLogger.Error(err, "unable to update the kanary service")
+						return service, true, reconcile.Result{}, err
+					}
+				}
 			}
 		}
 	}
 	return service, false, reconcile.Result{}, err
+}
+
+// NewOverwriteSelector used to know if the Deployment.Spec.Selector needs to be overwrited for the kanary deployment
+func NewOverwriteSelector(kd *kanaryv1alpha1.KanaryDeployment) bool {
+	// if we dont want that
+	switch kd.Spec.Traffic.Source {
+	case kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource:
+		return true
+	default:
+		return false
+	}
 }

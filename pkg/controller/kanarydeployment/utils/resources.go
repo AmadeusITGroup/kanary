@@ -15,21 +15,17 @@ import (
 )
 
 // NewCanaryServiceForKanaryDeployment returns a Service object
-func NewCanaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, service *corev1.Service) *corev1.Service {
-	kanaryServiceName := ""
-	switch kd.Spec.Traffic.Source {
-	case kanaryv1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource:
-	case kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource:
-		kanaryServiceName = kd.Spec.Traffic.KanaryService
-	}
-
-	if kanaryServiceName == "" {
-		kanaryServiceName = fmt.Sprintf("%s-kanary", service.Name)
-	}
+func NewCanaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, service *corev1.Service, overwriteLabel bool) *corev1.Service {
+	kanaryServiceName := GetCanaryServiceName(kd)
 
 	labelSelector := map[string]string{}
 	for key, val := range service.Spec.Selector {
-		labelSelector[key] = val
+		if overwriteLabel {
+			labelSelector[key] = fmt.Sprintf("%s-%s", val, "kanary")
+		} else {
+			labelSelector[key] = val
+		}
+
 	}
 	labelSelector[kanaryv1alpha1.KanaryDeploymentActivateLabelKey] = kanaryv1alpha1.KanaryDeploymentLabelValueTrue
 
@@ -42,6 +38,15 @@ func NewCanaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, se
 	newService.Spec.ClusterIP = ""
 	newService.Status = corev1.ServiceStatus{}
 	return newService
+}
+
+// GetCanaryServiceName returns the canary service name depending of the spec
+func GetCanaryServiceName(kd *kanaryv1alpha1.KanaryDeployment) string {
+	kanaryServiceName := kd.Spec.Traffic.KanaryService
+	if kanaryServiceName == "" {
+		kanaryServiceName = fmt.Sprintf("%s-kanary", kd.Spec.ServiceName)
+	}
+	return kanaryServiceName
 }
 
 // NewDeploymentForKanaryDeployment returns a Deployment object
@@ -80,7 +85,7 @@ func NewDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, schem
 }
 
 // NewCanaryDeploymentForKanaryDeployment returns a Deployment object
-func NewCanaryDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool) (*appsv1beta1.Deployment, error) {
+func NewCanaryDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool, overwriteLabel bool) (*appsv1beta1.Deployment, error) {
 	dep, err := NewDeploymentForKanaryDeployment(kd, scheme, true)
 	if err != nil {
 		return nil, err
@@ -89,9 +94,23 @@ func NewCanaryDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment,
 	if dep.Spec.Template.Labels == nil {
 		dep.Spec.Template.Labels = map[string]string{}
 	}
+	if dep.Spec.Selector.MatchLabels == nil {
+		dep.Spec.Selector.MatchLabels = map[string]string{}
+	}
+
+	if overwriteLabel {
+		for key, value := range dep.Spec.Template.Labels {
+			dep.Spec.Template.Labels[key] = fmt.Sprintf("%s-%s", value, "kanary")
+		}
+
+		for key, value := range dep.Spec.Selector.MatchLabels {
+			dep.Spec.Selector.MatchLabels[key] = fmt.Sprintf("%s-%s", value, "kanary")
+		}
+	}
 
 	dep.Spec.Template.Labels[kanaryv1alpha1.KanaryDeploymentActivateLabelKey] = kanaryv1alpha1.KanaryDeploymentLabelValueTrue
-	dep.Spec.Selector.MatchLabels = dep.Spec.Template.Labels
+	dep.Spec.Selector.MatchLabels[kanaryv1alpha1.KanaryDeploymentActivateLabelKey] = kanaryv1alpha1.KanaryDeploymentLabelValueTrue
+
 	dep.Spec.Replicas = GetCanaryReplicasValue(kd)
 
 	return dep, nil
