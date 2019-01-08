@@ -84,9 +84,9 @@ type KanaryDeploymentSpecTraffic struct {
 type KanaryDeploymentSpecTrafficSource string
 
 const (
-	// ServiceKanaryDeploymentSpecTrafficSource means that deployment service also target the canary deployment
+	// ServiceKanaryDeploymentSpecTrafficSource means that deployment service also target the canary deployment. Normal service discovery and loadbalacing done by kubernetes will be applied.
 	ServiceKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "service"
-	// KanaryServiceKanaryDeploymentSpecTrafficSource means that a dedicated service is created to target the canary deployment pods.
+	// KanaryServiceKanaryDeploymentSpecTrafficSource means that a dedicated service is created to target the canary deployment pods. The canary pods do not receive traffic from the classic service.
 	KanaryServiceKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "kanary-service"
 	// BothKanaryDeploymentSpecTrafficSource means canary deployment pods are targetable thank the deployment service but also
 	// with a the create kanary service.
@@ -94,7 +94,7 @@ const (
 	// NoneKanaryDeploymentSpecTrafficSource means the canary deployment pods are not accessible. it can be use when the application
 	// don't define any service.
 	NoneKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "none"
-	// ShadowKanaryDeploymentSpecTrafficSource means that the canary deployment pods are target by a shadow traffic.
+	// ShadowKanaryDeploymentSpecTrafficSource means that the canary deployment pods are target by a shadow traffic. This can be done only if istio is installed.
 	ShadowKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "shadow"
 )
 
@@ -105,6 +105,7 @@ type KanaryDeploymentSpecTrafficShadow struct {
 
 // KanaryDeploymentSpecValidation defines the validation configuration for the canary deployment
 type KanaryDeploymentSpecValidation struct {
+	// ValidationPeriod
 	ValidationPeriod *metav1.Duration                          `json:"validationPeriod,omitempty"`
 	Manual           *KanaryDeploymentSpecValidationManual     `json:"manual,omitempty"`
 	LabelWatch       *KanaryDeploymentSpecValidationLabelWatch `json:"labelWatch,omitempty"`
