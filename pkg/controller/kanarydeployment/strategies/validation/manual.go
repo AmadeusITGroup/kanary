@@ -21,14 +21,14 @@ import (
 // NewManual returns new validation.Manual instance
 func NewManual(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 	return &manualImpl{
-		deadline:         s.Manual.Deadline,
+		deadline:         s.Manual.DeadlineStatus,
 		status:           s.Manual.Status,
 		validationPeriod: s.ValidationPeriod.Duration,
 	}
 }
 
 type manualImpl struct {
-	deadline         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadine
+	deadline         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadineStatus
 	status           kanaryv1alpha1.KanaryDeploymentSpecValidationManualStatus
 	validationPeriod time.Duration
 }
@@ -41,21 +41,21 @@ func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 		needUpdateDeployment = true
 	}
 	deadlineActivated := m.isDeadlinePeriodDone(kd.CreationTimestamp.Time, time.Now())
-	if deadlineActivated && m.deadline == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadine {
+	if deadlineActivated && m.deadline == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
 		needUpdateDeployment = true
 	}
 
 	if needUpdateDeployment {
 		newDep, err := utils.UpdateDeploymentForKanaryDeployment(kd, dep)
 		if err != nil {
-			reqLogger.Error(err, "failed to update the Deployment artifact", "Deployment.Namespace", newDep.Namespace, "Deployment.Name", newDep.Name)
+			reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment.Name", newDep.Name)
 			return status, reconcile.Result{}, err
 		}
 
-		reqLogger.Info("Updating Deployment", "Deployment.Namespace", newDep.Namespace, "Deployment.Name", newDep.Name)
+		reqLogger.Info("Updating Deployment", "Namespace", newDep.Namespace, "Deployment.Name", newDep.Name)
 		err = kclient.Update(context.TODO(), newDep)
 		if err != nil {
-			reqLogger.Error(err, "failed to update the Deployment", "Deployment.Namespace", newDep.Namespace, "Deployment.Name", newDep.Name)
+			reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment.Name", newDep.Name)
 			return status, reconcile.Result{}, err
 		}
 	}
@@ -64,9 +64,9 @@ func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
 	} else if m.status == kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualStatus {
 		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, "KanaryDeployment validation failed, manual.status=invalid")
-	} else if deadlineActivated && m.deadline == kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadine {
+	} else if deadlineActivated && m.deadline == kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus {
 		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, "KanaryDeployment failed, deadline activated with 'invalid' status")
-	} else if deadlineActivated && m.deadline == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadine {
+	} else if deadlineActivated && m.deadline == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
 		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully, dealine activated with 'valid' status")
 	}
 

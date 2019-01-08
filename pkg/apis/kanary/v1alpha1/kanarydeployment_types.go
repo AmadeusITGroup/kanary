@@ -114,22 +114,22 @@ type KanaryDeploymentSpecValidation struct {
 
 // KanaryDeploymentSpecValidationManual defines the manual validation configuration
 type KanaryDeploymentSpecValidationManual struct {
-	Deadline KanaryDeploymentSpecValidationManualDeadine `json:"deadline,omitempty"`
-	Status   KanaryDeploymentSpecValidationManualStatus  `json:"status,omitempty"`
+	DeadlineStatus KanaryDeploymentSpecValidationManualDeadineStatus `json:"deadline,omitempty"`
+	Status         KanaryDeploymentSpecValidationManualStatus        `json:"status,omitempty"`
 }
 
-// KanaryDeploymentSpecValidationManualDeadine defines the validation manual deadine mode
-type KanaryDeploymentSpecValidationManualDeadine string
+// KanaryDeploymentSpecValidationManualDeadineStatus defines the validation manual deadine mode
+type KanaryDeploymentSpecValidationManualDeadineStatus string
 
 const (
-	// NoneKanaryDeploymentSpecValidationManualDeadine means deadline is not activated.
-	NoneKanaryDeploymentSpecValidationManualDeadine KanaryDeploymentSpecValidationManualDeadine = "none"
-	// ValidKanaryDeploymentSpecValidationManualDeadine means that after the validation.ValidationPeriod
+	// NoneKanaryDeploymentSpecValidationManualDeadineStatus means deadline is not activated.
+	NoneKanaryDeploymentSpecValidationManualDeadineStatus KanaryDeploymentSpecValidationManualDeadineStatus = "none"
+	// ValidKanaryDeploymentSpecValidationManualDeadineStatus means that after the validation.ValidationPeriod
 	// if the validation.manual.status is not set properly the KanaryDeployment will be considered as "valid"
-	ValidKanaryDeploymentSpecValidationManualDeadine KanaryDeploymentSpecValidationManualDeadine = "valid"
-	// InvalidKanaryDeploymentSpecValidationManualDeadine means that after the validation.ValidationPeriod
+	ValidKanaryDeploymentSpecValidationManualDeadineStatus KanaryDeploymentSpecValidationManualDeadineStatus = "valid"
+	// InvalidKanaryDeploymentSpecValidationManualDeadineStatus means that after the validation.ValidationPeriod
 	// if the validation.manual.status is not set properly the KanaryDeployment will be considered as "invalid"
-	InvalidKanaryDeploymentSpecValidationManualDeadine KanaryDeploymentSpecValidationManualDeadine = "invalid"
+	InvalidKanaryDeploymentSpecValidationManualDeadineStatus KanaryDeploymentSpecValidationManualDeadineStatus = "invalid"
 )
 
 // KanaryDeploymentSpecValidationManualStatus defines the KanaryDeployment validation status in case of manual validation.
@@ -144,10 +144,10 @@ const (
 
 // KanaryDeploymentSpecValidationLabelWatch defines the labelWatch validation configuration
 type KanaryDeploymentSpecValidationLabelWatch struct {
-	// PodSelector defines labels that should be present on the canary pods in order to validate
+	// PodSelector defines labels that should be present on the canary pods in order to invalidate
 	// the canary deployment
 	PodSelector *metav1.LabelSelector `json:"podSelector,omitempty"`
-	// DeploymentSelector defines labels that should be present on the canary deployment in order to validate
+	// DeploymentSelector defines labels that should be present on the canary deployment in order to invalidate
 	// the canary deployment
 	DeploymentSelector *metav1.LabelSelector `json:"deploymentSelector,omitempty"`
 }

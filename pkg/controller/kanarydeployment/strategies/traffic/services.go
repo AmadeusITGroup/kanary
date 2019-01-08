@@ -34,10 +34,10 @@ type kanaryServiceImpl struct {
 
 func (k *kanaryServiceImpl) Traffic(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, canaryDep *appsv1beta1.Deployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error) {
 	// Retrieve and create service if defined
-	_, needsReturn, result, err := k.manageServices(kclient, reqLogger, kd)
+	_, needsRequeue, result, err := k.manageServices(kclient, reqLogger, kd)
 	status := kd.Status.DeepCopy()
 	utils.UpdateKanaryDeploymentStatusConditionsFailure(status, metav1.Now(), err)
-	if needsReturn {
+	if needsRequeue {
 		result.Requeue = true
 	}
 	return status, result, err
@@ -66,10 +66,10 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 			currentKanaryService := &corev1.Service{}
 			err = kclient.Get(context.TODO(), types.NamespacedName{Name: kanaryService.Name, Namespace: kanaryService.Namespace}, currentKanaryService)
 			if err != nil && errors.IsNotFound(err) {
-				reqLogger.Info("Creating a new Canary Service", "Service.Namespace", kanaryService.Namespace, "Service.Name", kanaryService.Name)
+				reqLogger.Info("Creating a new Canary Service", "Namespace", kanaryService.Namespace, "Service.Name", kanaryService.Name)
 				err = kclient.Create(context.TODO(), kanaryService)
 				if err != nil {
-					reqLogger.Error(err, "failed to create new CanaryService", "Service.Namespace", kanaryService.Namespace, "Service.Name", kanaryService.Name)
+					reqLogger.Error(err, "failed to create new CanaryService", "Namespace", kanaryService.Namespace, "Service.Name", kanaryService.Name)
 					return service, true, reconcile.Result{}, err
 				}
 				// Deployment created successfully - return and requeue
