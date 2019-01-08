@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -23,7 +22,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
-	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
+	kanaryv1alpha1test "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1/test"
+	utilstest "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/test"
 )
 
 func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
@@ -89,7 +89,7 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			fields: fields{
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
-					newKanaryDeployment(name, namespace, "", defaultReplicas, nil, nil, nil),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, nil),
 				}...),
 			},
 			want: reconcile.Result{
@@ -122,8 +122,8 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			fields: fields{
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
-					newKanaryDeployment(name, namespace, "", defaultReplicas, nil, nil, nil),
-					newDeployment(name, namespace, defaultReplicas),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, nil),
+					utilstest.NewDeployment(name, namespace, defaultReplicas),
 				}...),
 			},
 			want: reconcile.Result{
@@ -161,9 +161,9 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			fields: fields{
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
-					newKanaryDeployment(name, namespace, "", defaultReplicas, nil, nil, nil),
-					newDeployment(name, namespace, defaultReplicas),
-					newDeployment(name+"-kanary", namespace, 1),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, nil),
+					utilstest.NewDeployment(name, namespace, defaultReplicas),
+					utilstest.NewDeployment(name+"-kanary", namespace, 1),
 				}...),
 			},
 			want: reconcile.Result{
@@ -191,9 +191,9 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			fields: fields{
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
-					newKanaryDeployment(name, namespace, serviceName, defaultReplicas, nil, kanaryServiceTraffic, nil),
-					newDeployment(name, namespace, defaultReplicas),
-					newDeployment(name+"-kanary", namespace, 1),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
+					utilstest.NewDeployment(name, namespace, defaultReplicas),
+					utilstest.NewDeployment(name+"-kanary", namespace, 1),
 				}...),
 			},
 			want: reconcile.Result{
@@ -223,10 +223,10 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			fields: fields{
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
-					newKanaryDeployment(name, namespace, serviceName, defaultReplicas, nil, kanaryServiceTraffic, nil),
-					newDeployment(name, namespace, defaultReplicas),
-					newDeployment(name+"-kanary", namespace, 1),
-					newService(serviceName, namespace, nil),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
+					utilstest.NewDeployment(name, namespace, defaultReplicas),
+					utilstest.NewDeployment(name+"-kanary", namespace, 1),
+					utilstest.NewService(serviceName, namespace, nil),
 				}...),
 			},
 			want: reconcile.Result{
@@ -273,70 +273,5 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func newKanaryDeployment(name, namespace, serviceName string, replicas int32, scale *kanaryv1alpha1.KanaryDeploymentSpecScale, traffic *kanaryv1alpha1.KanaryDeploymentSpecTraffic, validation *kanaryv1alpha1.KanaryDeploymentSpecValidation) *kanaryv1alpha1.KanaryDeployment {
-	kd := &kanaryv1alpha1.KanaryDeployment{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "KanaryDeployment",
-			APIVersion: kanaryv1alpha1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-	kd.Spec.Template.Spec.Selector = &metav1.LabelSelector{}
-	kd.Spec.Template.Spec.Replicas = kanaryv1alpha1.NewInt32(replicas)
-	kd.Spec.ServiceName = serviceName
-
-	if scale != nil {
-		kd.Spec.Scale = *scale
-	}
-	if traffic != nil {
-		kd.Spec.Traffic = *traffic
-	}
-	if validation != nil {
-		kd.Spec.Validation = *validation
-	}
-	kd = kanaryv1alpha1.DefaultKanaryDeployment(kd)
-	kd.Spec.ServiceName = serviceName
-
-	return kd
-}
-
-func newDeployment(name, namespace string, replicas int32) *appsv1beta1.Deployment {
-	spec := &appsv1beta1.DeploymentSpec{
-		Replicas: &replicas,
-	}
-	md5, _ := utils.GenerateMD5DeploymentSpec(spec)
-	return &appsv1beta1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Deployment",
-			APIVersion: appsv1beta1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			Annotations: map[string]string{string(kanaryv1alpha1.MD5KanaryDeploymentAnnotationKey): md5},
-		},
-		Spec: *spec,
-	}
-}
-
-func newService(name, namespace string, labelsSelector map[string]string) *corev1.Service {
-	return &corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: labelsSelector,
-		},
 	}
 }

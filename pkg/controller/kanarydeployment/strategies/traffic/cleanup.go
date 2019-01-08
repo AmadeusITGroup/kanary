@@ -2,6 +2,7 @@ package traffic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 
@@ -65,12 +66,15 @@ func (t *cleanupImpl) clearServices(kclient client.Client, reqLogger logr.Logger
 
 	var errs []error
 	if len(services.Items) > 0 {
+		reqLogger.Info(fmt.Sprintf("nbItem: %d", len(services.Items)))
 		for _, service := range services.Items {
 			err = kclient.Delete(context.TODO(), &service)
 			if err != nil {
 				reqLogger.Error(err, "unable to delete the kanary service")
-				result.Requeue = true
+				errs = append(errs, err)
 			}
+			needsReturn = true
+			result.Requeue = true
 		}
 	}
 	if errs != nil {
