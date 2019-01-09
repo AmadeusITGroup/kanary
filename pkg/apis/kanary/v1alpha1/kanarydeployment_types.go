@@ -84,9 +84,9 @@ type KanaryDeploymentSpecTraffic struct {
 type KanaryDeploymentSpecTrafficSource string
 
 const (
-	// ServiceKanaryDeploymentSpecTrafficSource means that deployment service also target the canary deployment
+	// ServiceKanaryDeploymentSpecTrafficSource means that deployment service also target the canary deployment. Normal service discovery and loadbalacing done by kubernetes will be applied.
 	ServiceKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "service"
-	// KanaryServiceKanaryDeploymentSpecTrafficSource means that a dedicated service is created to target the canary deployment pods.
+	// KanaryServiceKanaryDeploymentSpecTrafficSource means that a dedicated service is created to target the canary deployment pods. The canary pods do not receive traffic from the classic service.
 	KanaryServiceKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "kanary-service"
 	// BothKanaryDeploymentSpecTrafficSource means canary deployment pods are targetable thank the deployment service but also
 	// with a the create kanary service.
@@ -94,7 +94,7 @@ const (
 	// NoneKanaryDeploymentSpecTrafficSource means the canary deployment pods are not accessible. it can be use when the application
 	// don't define any service.
 	NoneKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "none"
-	// ShadowKanaryDeploymentSpecTrafficSource means that the canary deployment pods are target by a shadow traffic.
+	// ShadowKanaryDeploymentSpecTrafficSource means that the canary deployment pods are target by a shadow traffic. This can be done only if istio is installed.
 	ShadowKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "shadow"
 )
 
@@ -105,6 +105,7 @@ type KanaryDeploymentSpecTrafficShadow struct {
 
 // KanaryDeploymentSpecValidation defines the validation configuration for the canary deployment
 type KanaryDeploymentSpecValidation struct {
+	// ValidationPeriod
 	ValidationPeriod *metav1.Duration                          `json:"validationPeriod,omitempty"`
 	Manual           *KanaryDeploymentSpecValidationManual     `json:"manual,omitempty"`
 	LabelWatch       *KanaryDeploymentSpecValidationLabelWatch `json:"labelWatch,omitempty"`
@@ -113,22 +114,22 @@ type KanaryDeploymentSpecValidation struct {
 
 // KanaryDeploymentSpecValidationManual defines the manual validation configuration
 type KanaryDeploymentSpecValidationManual struct {
-	Deadline KanaryDeploymentSpecValidationManualDeadine `json:"deadline,omitempty"`
-	Status   KanaryDeploymentSpecValidationManualStatus  `json:"status,omitempty"`
+	DeadlineStatus KanaryDeploymentSpecValidationManualDeadineStatus `json:"deadline,omitempty"`
+	Status         KanaryDeploymentSpecValidationManualStatus        `json:"status,omitempty"`
 }
 
-// KanaryDeploymentSpecValidationManualDeadine defines the validation manual deadine mode
-type KanaryDeploymentSpecValidationManualDeadine string
+// KanaryDeploymentSpecValidationManualDeadineStatus defines the validation manual deadine mode
+type KanaryDeploymentSpecValidationManualDeadineStatus string
 
 const (
-	// NoneKanaryDeploymentSpecValidationManualDeadine means deadline is not activated.
-	NoneKanaryDeploymentSpecValidationManualDeadine KanaryDeploymentSpecValidationManualDeadine = "none"
-	// ValidKanaryDeploymentSpecValidationManualDeadine means that after the validation.ValidationPeriod
+	// NoneKanaryDeploymentSpecValidationManualDeadineStatus means deadline is not activated.
+	NoneKanaryDeploymentSpecValidationManualDeadineStatus KanaryDeploymentSpecValidationManualDeadineStatus = "none"
+	// ValidKanaryDeploymentSpecValidationManualDeadineStatus means that after the validation.ValidationPeriod
 	// if the validation.manual.status is not set properly the KanaryDeployment will be considered as "valid"
-	ValidKanaryDeploymentSpecValidationManualDeadine KanaryDeploymentSpecValidationManualDeadine = "valid"
-	// InvalidKanaryDeploymentSpecValidationManualDeadine means that after the validation.ValidationPeriod
+	ValidKanaryDeploymentSpecValidationManualDeadineStatus KanaryDeploymentSpecValidationManualDeadineStatus = "valid"
+	// InvalidKanaryDeploymentSpecValidationManualDeadineStatus means that after the validation.ValidationPeriod
 	// if the validation.manual.status is not set properly the KanaryDeployment will be considered as "invalid"
-	InvalidKanaryDeploymentSpecValidationManualDeadine KanaryDeploymentSpecValidationManualDeadine = "invalid"
+	InvalidKanaryDeploymentSpecValidationManualDeadineStatus KanaryDeploymentSpecValidationManualDeadineStatus = "invalid"
 )
 
 // KanaryDeploymentSpecValidationManualStatus defines the KanaryDeployment validation status in case of manual validation.
@@ -143,10 +144,10 @@ const (
 
 // KanaryDeploymentSpecValidationLabelWatch defines the labelWatch validation configuration
 type KanaryDeploymentSpecValidationLabelWatch struct {
-	// PodSelector defines labels that should be present on the canary pods in order to validate
+	// PodSelector defines labels that should be present on the canary pods in order to invalidate
 	// the canary deployment
 	PodSelector *metav1.LabelSelector `json:"podSelector,omitempty"`
-	// DeploymentSelector defines labels that should be present on the canary deployment in order to validate
+	// DeploymentSelector defines labels that should be present on the canary deployment in order to invalidate
 	// the canary deployment
 	DeploymentSelector *metav1.LabelSelector `json:"deploymentSelector,omitempty"`
 }

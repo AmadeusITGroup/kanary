@@ -103,7 +103,7 @@ func Test_manualImpl_Validation(t *testing.T) {
 	)
 
 	type fields struct {
-		deadline         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadine
+		deadline         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadineStatus
 		status           kanaryv1alpha1.KanaryDeploymentSpecValidationManualStatus
 		validationPeriod time.Duration
 	}
@@ -137,7 +137,7 @@ func Test_manualImpl_Validation(t *testing.T) {
 		{
 			name: "validation manual validated",
 			fields: fields{
-				deadline: kanaryv1alpha1.NoneKanaryDeploymentSpecValidationManualDeadine,
+				deadline: kanaryv1alpha1.NoneKanaryDeploymentSpecValidationManualDeadineStatus,
 				status:   kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus,
 			},
 			args: args{
@@ -156,7 +156,7 @@ func Test_manualImpl_Validation(t *testing.T) {
 		{
 			name: "validation manual invalidated",
 			fields: fields{
-				deadline: kanaryv1alpha1.NoneKanaryDeploymentSpecValidationManualDeadine,
+				deadline: kanaryv1alpha1.NoneKanaryDeploymentSpecValidationManualDeadineStatus,
 				status:   kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualStatus,
 			},
 			args: args{
@@ -176,7 +176,7 @@ func Test_manualImpl_Validation(t *testing.T) {
 		{
 			name: "validation manual with deadline validated",
 			fields: fields{
-				deadline:         kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadine,
+				deadline:         kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus,
 				status:           "",
 				validationPeriod: 15 * time.Minute,
 			},
@@ -196,7 +196,7 @@ func Test_manualImpl_Validation(t *testing.T) {
 		{
 			name: "validation manual with deadline invalidated",
 			fields: fields{
-				deadline:         kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadine,
+				deadline:         kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus,
 				status:           "",
 				validationPeriod: 15 * time.Minute,
 			},

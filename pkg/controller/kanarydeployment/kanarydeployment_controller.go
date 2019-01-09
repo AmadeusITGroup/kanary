@@ -151,14 +151,14 @@ func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger log
 	if err != nil && errors.IsNotFound(err) {
 		deployment, err = utils.NewCanaryDeploymentForKanaryDeployment(kd, r.scheme, false, traffic.NewOverwriteSelector(kd))
 		if err != nil {
-			reqLogger.Error(err, "failed to create the Deployment artifact", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+			reqLogger.Error(err, "failed to create the Deployment artifact", "Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 			return deployment, true, reconcile.Result{}, err
 		}
 
-		reqLogger.Info("Creating a new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+		reqLogger.Info("Creating a new Deployment", "Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 		err = r.client.Create(context.TODO(), deployment)
 		if err != nil {
-			reqLogger.Error(err, "failed to create new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+			reqLogger.Error(err, "failed to create new Deployment", "Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 			return deployment, true, reconcile.Result{}, err
 		}
 		kd.Status.CurrentHash = currentHash
@@ -169,7 +169,7 @@ func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger log
 	if kd.Status.CurrentHash != "" && kd.Status.CurrentHash != currentHash {
 		err = r.client.Delete(context.TODO(), deployment)
 		if err != nil {
-			reqLogger.Error(err, "failed to delete deprecated Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+			reqLogger.Error(err, "failed to delete deprecated Deployment", "Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 			return deployment, true, reconcile.Result{RequeueAfter: time.Second}, err
 		}
 	}
@@ -183,20 +183,20 @@ func (r *ReconcileKanaryDeployment) manageDeploymentCreationFunc(reqLogger logr.
 	if err != nil && errors.IsNotFound(err) {
 		deployment, err = createFunc(kd, r.scheme, false)
 		if err != nil {
-			reqLogger.Error(err, "failed to create the Deployment artifact", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+			reqLogger.Error(err, "failed to create the Deployment artifact", "Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 			return deployment, true, reconcile.Result{}, err
 		}
 
-		reqLogger.Info("Creating a new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+		reqLogger.Info("Creating a new Deployment", "Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 		err = r.client.Create(context.TODO(), deployment)
 		if err != nil {
-			reqLogger.Error(err, "failed to create new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+			reqLogger.Error(err, "failed to create new Deployment", "Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 			return deployment, true, reconcile.Result{}, err
 		}
 		// Deployment created successfully - return and requeue
 		return deployment, true, reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
-		reqLogger.Error(err, "failed to get Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+		reqLogger.Error(err, "failed to get Deployment", "Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 		return deployment, true, reconcile.Result{}, err
 	}
 

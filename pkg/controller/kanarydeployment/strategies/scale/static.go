@@ -51,7 +51,7 @@ func updateDeploymentReplicas(kclient client.StatusWriter, reqLogger logr.Logger
 	updateDep.Spec.Replicas = &replicas
 	err := kclient.Update(context.TODO(), updateDep)
 	if err != nil {
-		reqLogger.Error(err, "failed to update Deployment replicas", "Deployment.Namespace", updateDep.Namespace, "Deployment.Name", updateDep.Name)
+		reqLogger.Error(err, "failed to update Deployment replicas", "Namespace", updateDep.Namespace, "Deployment.Name", updateDep.Name)
 	}
 	return reconcile.Result{Requeue: true}, err
 }

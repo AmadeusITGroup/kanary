@@ -49,7 +49,7 @@ func GetCanaryServiceName(kd *kanaryv1alpha1.KanaryDeployment) string {
 	return kanaryServiceName
 }
 
-// NewDeploymentForKanaryDeployment returns a Deployment object
+// NewDeploymentForKanaryDeployment returns a Deployment object from the template
 func NewDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool) (*appsv1beta1.Deployment, error) {
 	ls := GetLabelsForKanaryDeploymentd(kd.Name)
 
@@ -84,7 +84,7 @@ func NewDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, schem
 	return dep, nil
 }
 
-// NewCanaryDeploymentForKanaryDeployment returns a Deployment object
+// NewCanaryDeploymentForKanaryDeployment returns a Deployment object from the template and decorate it to be the Canary
 func NewCanaryDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool, overwriteLabel bool) (*appsv1beta1.Deployment, error) {
 	dep, err := NewDeploymentForKanaryDeployment(kd, scheme, true)
 	if err != nil {
@@ -128,26 +128,6 @@ func UpdateDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, ol
 	if _, err := SetMD5DeploymentSpecAnnotation(kd, newDep); err != nil {
 		return nil, fmt.Errorf("unable to set the md5 annotation, %v", err)
 	}
-
-	return newDep, nil
-}
-
-// UpdateCanaryDeploymentForKanaryDeployment returns a Deployment object updated
-func UpdateCanaryDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, oldDep *appsv1beta1.Deployment) (*appsv1beta1.Deployment, error) {
-	newDep := oldDep.DeepCopy()
-	newDep.Spec = kd.Spec.Template.Spec
-	if newDep.Spec.Template.Labels == nil {
-		newDep.Spec.Template.Labels = map[string]string{}
-	}
-	newDep.Spec.Template.Labels[kanaryv1alpha1.KanaryDeploymentActivateLabelKey] = kanaryv1alpha1.KanaryDeploymentLabelValueTrue
-	newDep.Spec.Replicas = GetCanaryReplicasValue(kd)
-
-	hash, err := SetMD5DeploymentSpecAnnotation(kd, newDep)
-	if err != nil {
-		return nil, fmt.Errorf("unable to set the md5 annotation, %v", err)
-	}
-
-	kd.Status.CurrentHash = hash
 
 	return newDep, nil
 }

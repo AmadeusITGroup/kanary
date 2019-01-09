@@ -63,9 +63,9 @@ func IsDefaultedKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation
 	}
 
 	if v.Manual != nil {
-		if !(v.Manual.Deadline == NoneKanaryDeploymentSpecValidationManualDeadine ||
-			v.Manual.Deadline == ValidKanaryDeploymentSpecValidationManualDeadine ||
-			v.Manual.Deadline == InvalidKanaryDeploymentSpecValidationManualDeadine) {
+		if !(v.Manual.DeadlineStatus == NoneKanaryDeploymentSpecValidationManualDeadineStatus ||
+			v.Manual.DeadlineStatus == ValidKanaryDeploymentSpecValidationManualDeadineStatus ||
+			v.Manual.DeadlineStatus == InvalidKanaryDeploymentSpecValidationManualDeadineStatus) {
 			return false
 		}
 	}
@@ -132,7 +132,7 @@ func defaultKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation) {
 
 func defaultKanaryDeploymentSpecScaleValidationManual(v *KanaryDeploymentSpecValidation) {
 	v.Manual = &KanaryDeploymentSpecValidationManual{
-		Deadline: NoneKanaryDeploymentSpecValidationManualDeadine,
+		DeadlineStatus: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
 	}
 }
 
