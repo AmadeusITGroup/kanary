@@ -37,7 +37,7 @@ func TestIsDefaultedKanaryDeployment(t *testing.T) {
 							Duration: 15 * time.Minute,
 						},
 						Manual: &KanaryDeploymentSpecValidationManual{
-							DeadlineStatus: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
+							StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
 						},
 					},
 				},
@@ -81,7 +81,7 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 							Duration: 15 * time.Minute,
 						},
 						Manual: &KanaryDeploymentSpecValidationManual{
-							DeadlineStatus: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
+							StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
 						},
 					},
 				},

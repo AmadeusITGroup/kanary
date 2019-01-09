@@ -14,4 +14,5 @@ import (
 // Interface traffic strategy interface
 type Interface interface {
 	Traffic(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, canaryDep *appsv1beta1.Deployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error)
+	Cleanup(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error)
 }

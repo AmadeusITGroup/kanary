@@ -114,7 +114,7 @@ type KanaryDeploymentSpecValidation struct {
 
 // KanaryDeploymentSpecValidationManual defines the manual validation configuration
 type KanaryDeploymentSpecValidationManual struct {
-	DeadlineStatus KanaryDeploymentSpecValidationManualDeadineStatus `json:"deadline,omitempty"`
+	StatusAfterDealine KanaryDeploymentSpecValidationManualDeadineStatus `json:"deadline,omitempty"`
 	Status         KanaryDeploymentSpecValidationManualStatus        `json:"status,omitempty"`
 }
 

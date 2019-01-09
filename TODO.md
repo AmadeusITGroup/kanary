@@ -11,6 +11,9 @@ Should we propose to list the servicename, or list the trafficSpec, or just prop
 Since the shadow feature will rely on the implementation of Istio Mirroring feature, the best is to use the same name.
 https://istio.io/docs/tasks/traffic-management/mirroring/
 
+## In case of Invalid KanaryDeployment, remove pod from Service
+If a KanaryDeployment is set as invalid, it should not interfer anymore with the service
+
 ## HPA (medium)
 Introduce HAP in the KanaryDeploymentSpecScale
 
@@ -19,6 +22,3 @@ Pilot Source and traffic split using istio from the TrafficSpec (not only mirror
 
 ## Validation based on annotation (simple)
 Add annotationWatch (just like labelWatch)
-
-## Rename deadline in StatusAfterDealine (one click)
-

@@ -2,6 +2,7 @@ package traffic
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -12,7 +13,9 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -41,6 +44,29 @@ func (k *kanaryServiceImpl) Traffic(kclient client.Client, reqLogger logr.Logger
 		result.Requeue = true
 	}
 	return status, result, err
+}
+
+func (k *kanaryServiceImpl) Cleanup(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
+	if k.conf.Source == kanaryv1alpha1.ShadowKanaryDeploymentSpecTrafficSource || k.conf.Source == kanaryv1alpha1.NoneKanaryDeploymentSpecTrafficSource {
+		var needsReturn bool
+		needsReturn, result, err = k.clearServices(kclient, reqLogger, kd)
+		if needsReturn {
+			result.Requeue = true
+		}
+	}
+
+	return &kd.Status, result, err
+}
+
+// NewOverwriteSelector used to know if the Deployment.Spec.Selector needs to be overwrited for the kanary deployment
+func NewOverwriteSelector(kd *kanaryv1alpha1.KanaryDeployment) bool {
+	// if we dont want that
+	switch kd.Spec.Traffic.Source {
+	case kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource:
+		return true
+	default:
+		return false
+	}
 }
 
 func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment) (*corev1.Service, bool, reconcile.Result, error) {
@@ -102,13 +128,40 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 	return service, false, reconcile.Result{}, err
 }
 
-// NewOverwriteSelector used to know if the Deployment.Spec.Selector needs to be overwrited for the kanary deployment
-func NewOverwriteSelector(kd *kanaryv1alpha1.KanaryDeployment) bool {
-	// if we dont want that
-	switch kd.Spec.Traffic.Source {
-	case kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource:
-		return true
-	default:
-		return false
+func (k *kanaryServiceImpl) clearServices(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment) (needsReturn bool, result reconcile.Result, err error) {
+	services := &corev1.ServiceList{}
+
+	selector := labels.Set{
+		kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: kd.Name,
 	}
+
+	listOptions := &client.ListOptions{
+		LabelSelector: selector.AsSelector(),
+		Namespace:     kd.Namespace,
+	}
+	// use List instead of Get because the spec.ServiceName can empty after a spec configuration change
+	err = kclient.List(context.TODO(), listOptions, services)
+	if err != nil {
+		reqLogger.Error(err, "failed to list Service")
+		return true, reconcile.Result{Requeue: true}, err
+	}
+
+	var errs []error
+	if len(services.Items) > 0 {
+		reqLogger.Info(fmt.Sprintf("nbItem: %d", len(services.Items)))
+		for _, service := range services.Items {
+			err = kclient.Delete(context.TODO(), &service)
+			if err != nil {
+				reqLogger.Error(err, "unable to delete the kanary service")
+				errs = append(errs, err)
+			}
+			needsReturn = true
+			result.Requeue = true
+		}
+	}
+	if errs != nil {
+		err = utilerrors.NewAggregate(errs)
+	}
+
+	return needsReturn, result, err
 }

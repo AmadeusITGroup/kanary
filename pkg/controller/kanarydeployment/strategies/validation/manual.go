@@ -21,7 +21,7 @@ import (
 // NewManual returns new validation.Manual instance
 func NewManual(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 	return &manualImpl{
-		deadline:         s.Manual.DeadlineStatus,
+		deadline:         s.Manual.StatusAfterDealine,
 		status:           s.Manual.Status,
 		validationPeriod: s.ValidationPeriod.Duration,
 	}

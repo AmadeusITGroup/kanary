@@ -31,16 +31,20 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 		scaleImpl = scale.NewStatic(spec.Scale.Static)
 	}
 
-	var trafficImpls []traffic.Interface
+	trafficKanaryService := traffic.NewKanaryService(&spec.Traffic)
+	trafficMirror := traffic.NewMirror(&spec.Traffic)
+	trafficImpls := map[traffic.Interface]bool{
+		trafficKanaryService: false,
+		trafficMirror:        false,
+	}
+
 	switch spec.Traffic.Source {
 	case kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource:
-		trafficImpls = append(trafficImpls, traffic.NewKanaryService(&spec.Traffic))
+		trafficImpls[trafficKanaryService] = true
 	case kanaryv1alpha1.ShadowKanaryDeploymentSpecTrafficSource:
-		trafficImpls = append(trafficImpls, traffic.NewShadow(&spec.Traffic))
+		trafficImpls[trafficMirror] = true
 	default:
-
 	}
-	trafficImpls = append(trafficImpls, traffic.NewCleanup(&spec.Traffic))
 
 	var validationImpl validation.Interface
 	if spec.Validation.Manual != nil {
@@ -60,7 +64,7 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 
 type strategy struct {
 	scale      scale.Interface
-	traffic    []traffic.Interface
+	traffic    map[traffic.Interface]bool
 	validation validation.Interface
 }
 
@@ -81,10 +85,14 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		return status, result, err
 	}
 
-	for _, t := range s.traffic {
-		status, result, err = t.Traffic(kclient, reqLogger, kd, canarydep)
+	for impl, activated := range s.traffic {
+		if activated {
+			status, result, err = impl.Traffic(kclient, reqLogger, kd, canarydep)
+		} else {
+			status, result, err = impl.Cleanup(kclient, reqLogger, kd)
+		}
 		if err != nil {
-			return status, result, fmt.Errorf("error during Traffic process, err: %v", err)
+			return status, result, fmt.Errorf("error during Traffic, err: %v", err)
 		}
 		if needReturn(&result) {
 			return status, result, err
