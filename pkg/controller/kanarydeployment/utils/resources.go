@@ -35,8 +35,13 @@ func NewCanaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, se
 		Namespace: kd.Namespace,
 	}
 	newService.Spec.Selector = labelSelector
+	if newService.Spec.Type == corev1.ServiceTypeNodePort || newService.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		// this is to remove Port collision
+		newService.Spec.Type = corev1.ServiceTypeClusterIP
+	}
 	newService.Spec.ClusterIP = ""
 	newService.Status = corev1.ServiceStatus{}
+
 	return newService
 }
 
@@ -49,8 +54,8 @@ func GetCanaryServiceName(kd *kanaryv1alpha1.KanaryDeployment) string {
 	return kanaryServiceName
 }
 
-// NewDeploymentForKanaryDeployment returns a Deployment object from the template
-func NewDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool) (*appsv1beta1.Deployment, error) {
+// NewDeploymentFromKanaryDeploymentTemplate returns a Deployment object
+func NewDeploymentFromKanaryDeploymentTemplate(kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool) (*appsv1beta1.Deployment, error) {
 	ls := GetLabelsForKanaryDeploymentd(kd.Name)
 
 	dep := &appsv1beta1.Deployment{
@@ -84,9 +89,9 @@ func NewDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, schem
 	return dep, nil
 }
 
-// NewCanaryDeploymentForKanaryDeployment returns a Deployment object from the template and decorate it to be the Canary
-func NewCanaryDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool, overwriteLabel bool) (*appsv1beta1.Deployment, error) {
-	dep, err := NewDeploymentForKanaryDeployment(kd, scheme, true)
+// NewCanaryDeploymentFromKanaryDeploymentTemplate returns a Deployment object
+func NewCanaryDeploymentFromKanaryDeploymentTemplate(kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool, overwriteLabel bool) (*appsv1beta1.Deployment, error) {
+	dep, err := NewDeploymentFromKanaryDeploymentTemplate(kd, scheme, true)
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +121,8 @@ func NewCanaryDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment,
 	return dep, nil
 }
 
-// UpdateDeploymentForKanaryDeployment returns a Deployment object updated
-func UpdateDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, oldDep *appsv1beta1.Deployment) (*appsv1beta1.Deployment, error) {
+// UpdateDeploymentWithKanaryDeploymentTemplate returns a Deployment object updated
+func UpdateDeploymentWithKanaryDeploymentTemplate(kd *kanaryv1alpha1.KanaryDeployment, oldDep *appsv1beta1.Deployment) (*appsv1beta1.Deployment, error) {
 	newDep := oldDep.DeepCopy()
 	{
 		newDep.Labels = kd.Spec.Template.Labels

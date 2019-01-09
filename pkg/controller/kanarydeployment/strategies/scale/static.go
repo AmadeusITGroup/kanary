@@ -25,7 +25,7 @@ type staticImpl struct {
 }
 
 func (s *staticImpl) Scale(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, canaryDep *appsv1beta1.Deployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error) {
-	status := kd.Status.DeepCopy()
+	status := &kd.Status
 	// check if the canary deployment replicas is up to date
 	var specReplicas, canaryReplicas int32
 	if canaryDep.Spec.Replicas != nil {

@@ -46,7 +46,7 @@ func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 	}
 
 	if needUpdateDeployment {
-		newDep, err := utils.UpdateDeploymentForKanaryDeployment(kd, dep)
+		newDep, err := utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
 		if err != nil {
 			reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment.Name", newDep.Name)
 			return status, reconcile.Result{}, err

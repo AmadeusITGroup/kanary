@@ -135,7 +135,7 @@ func (r *ReconcileKanaryDeployment) Reconcile(request reconcile.Request) (reconc
 }
 
 func (r *ReconcileKanaryDeployment) manageDeployment(reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, name string) (*appsv1beta1.Deployment, bool, reconcile.Result, error) {
-	return r.manageDeploymentCreationFunc(reqLogger, kd, name, utils.NewDeploymentForKanaryDeployment)
+	return r.manageDeploymentCreationFunc(reqLogger, kd, name, utils.NewDeploymentFromKanaryDeploymentTemplate)
 }
 
 func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, name string) (*appsv1beta1.Deployment, bool, reconcile.Result, error) {
@@ -149,7 +149,7 @@ func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger log
 	deployment := &appsv1beta1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: kd.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
-		deployment, err = utils.NewCanaryDeploymentForKanaryDeployment(kd, r.scheme, false, traffic.NewOverwriteSelector(kd))
+		deployment, err = utils.NewCanaryDeploymentFromKanaryDeploymentTemplate(kd, r.scheme, false, traffic.NewOverwriteSelector(kd))
 		if err != nil {
 			reqLogger.Error(err, "failed to create the Deployment artifact", "Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 			return deployment, true, reconcile.Result{}, err
