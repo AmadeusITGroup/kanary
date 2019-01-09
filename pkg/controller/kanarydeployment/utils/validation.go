@@ -10,17 +10,9 @@ import (
 // return a list of errors in case of unvalid fields.
 func ValidateKanaryDeployment(kd *v1alpha1.KanaryDeployment) []error {
 	var errs []error
-	errs = append(errs, validateKanaryDeploymentSpec(&kd.Spec)...)
-	return errs
-}
-
-// validateKanaryDeploymentSpec used to validate a KanaryDeploymentSpec
-// return a list of errors in case of unvalid Spec.
-func validateKanaryDeploymentSpec(spec *v1alpha1.KanaryDeploymentSpec) []error {
-	var errs []error
-	errs = append(errs, validateKanaryDeploymentSpecScale(&spec.Scale)...)
-	errs = append(errs, validateKanaryDeploymentSpecTraffic(&spec.Traffic)...)
-	errs = append(errs, validateKanaryDeploymentSpecValidation(&spec.Validation)...)
+	errs = append(errs, validateKanaryDeploymentSpecScale(&kd.Spec.Scale)...)
+	errs = append(errs, validateKanaryDeploymentSpecTraffic(&kd.Spec.Traffic)...)
+	errs = append(errs, validateKanaryDeploymentSpecValidation(&kd.Spec.Validation)...)
 	return errs
 }
 
@@ -42,12 +34,12 @@ func validateKanaryDeploymentSpecTraffic(t *v1alpha1.KanaryDeploymentSpecTraffic
 		t.Source == v1alpha1.ServiceKanaryDeploymentSpecTrafficSource ||
 		t.Source == v1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource ||
 		t.Source == v1alpha1.BothKanaryDeploymentSpecTrafficSource ||
-		t.Source == v1alpha1.ShadowKanaryDeploymentSpecTrafficSource) {
+		t.Source == v1alpha1.MirrorKanaryDeploymentSpecTrafficSource) {
 		errs = append(errs, fmt.Errorf("spec.traffic.source bad value, current value:%s", t.Source))
 	}
 
-	if t.Source != v1alpha1.ShadowKanaryDeploymentSpecTrafficSource && t.Shadow != nil {
-		errs = append(errs, fmt.Errorf("spec.traffic bad configuration, 'shadow' configuration provived, but 'source'=%s", t.Source))
+	if t.Source != v1alpha1.MirrorKanaryDeploymentSpecTrafficSource && t.Mirror != nil {
+		errs = append(errs, fmt.Errorf("spec.traffic bad configuration, 'mirror' configuration provived, but 'source'=%s", t.Source))
 	}
 
 	return errs

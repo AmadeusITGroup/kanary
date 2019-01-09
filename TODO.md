@@ -7,11 +7,7 @@ Validate that the selector of the service in the spec is really selecting the po
 A pod can be addressed by multiple service.
 Should we propose to list the servicename, or list the trafficSpec, or just propose to create a different KanaryDeployment for each service? (last proposition already possible today)
 
-## Rename Shadow into Mirror (simple)
-Since the shadow feature will rely on the implementation of Istio Mirroring feature, the best is to use the same name.
-https://istio.io/docs/tasks/traffic-management/mirroring/
-
-## In case of Invalid KanaryDeployment, remove pod from Service
+## In case of Invalid KanaryDeployment, remove pod from Service (medium)
 If a KanaryDeployment is set as invalid, it should not interfer anymore with the service
 
 ## HPA (medium)
@@ -22,3 +18,7 @@ Pilot Source and traffic split using istio from the TrafficSpec (not only mirror
 
 ## Validation based on annotation (simple)
 Add annotationWatch (just like labelWatch)
+
+## NodePort And LoadBalancer Service
+In function NewCanaryServiceForKanaryDeployment the kanary serivce is cloned from the origin service. If the original service is of type NodePort or Loadbalancer service, it should be converted to cluster, and the nodeport field should be cleaned.
+

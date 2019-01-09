@@ -21,52 +21,52 @@ import (
 // NewManual returns new validation.Manual instance
 func NewManual(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 	return &manualImpl{
-		deadline:         s.Manual.StatusAfterDealine,
-		status:           s.Manual.Status,
-		validationPeriod: s.ValidationPeriod.Duration,
+		deadlineStatus:         s.Manual.StatusAfterDealine,
+		validationManualStatus: s.Manual.Status,
+		validationPeriod:       s.ValidationPeriod.Duration,
 	}
 }
 
 type manualImpl struct {
-	deadline         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadineStatus
-	status           kanaryv1alpha1.KanaryDeploymentSpecValidationManualStatus
-	validationPeriod time.Duration
+	deadlineStatus         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadineStatus
+	validationManualStatus kanaryv1alpha1.KanaryDeploymentSpecValidationManualStatus
+	validationPeriod       time.Duration
 }
 
 func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
 	status = kd.Status.DeepCopy()
 
 	var needUpdateDeployment bool
-	if m.status == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus {
+	if m.validationManualStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus {
 		needUpdateDeployment = true
 	}
-	deadlineActivated := m.isDeadlinePeriodDone(kd.CreationTimestamp.Time, time.Now())
-	if deadlineActivated && m.deadline == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
+	deadlineReached := m.isDeadlinePeriodDone(kd.CreationTimestamp.Time, time.Now())
+	if deadlineReached && m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
 		needUpdateDeployment = true
 	}
 
 	if needUpdateDeployment {
 		newDep, err := utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
 		if err != nil {
-			reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment.Name", newDep.Name)
+			reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
 			return status, reconcile.Result{}, err
 		}
 
-		reqLogger.Info("Updating Deployment", "Namespace", newDep.Namespace, "Deployment.Name", newDep.Name)
+		reqLogger.Info("Updating Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
 		err = kclient.Update(context.TODO(), newDep)
 		if err != nil {
-			reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment.Name", newDep.Name)
+			reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
 			return status, reconcile.Result{}, err
 		}
 	}
 
-	if m.status == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus {
+	if m.validationManualStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus {
 		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
-	} else if m.status == kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualStatus {
+	} else if m.validationManualStatus == kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualStatus {
 		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, "KanaryDeployment validation failed, manual.status=invalid")
-	} else if deadlineActivated && m.deadline == kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus {
+	} else if deadlineReached && m.deadlineStatus == kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus {
 		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, "KanaryDeployment failed, deadline activated with 'invalid' status")
-	} else if deadlineActivated && m.deadline == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
+	} else if deadlineReached && m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
 		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully, dealine activated with 'valid' status")
 	}
 

@@ -50,7 +50,7 @@ func UpdateKanaryDeploymentStatusConditionsFailure(status *kanaryv1alpha1.Kanary
 
 // UpdateKanaryDeploymentStatusCondition used to update a specific KanaryDeploymentConditionType
 func UpdateKanaryDeploymentStatusCondition(status *kanaryv1alpha1.KanaryDeploymentStatus, now metav1.Time, t kanaryv1alpha1.KanaryDeploymentConditionType, conditionStatus corev1.ConditionStatus, desc string) {
-	idConditionComplete := searchKanaryDeploymentStatusConditionType(status, t)
+	idConditionComplete := getIndexForConditionType(status, t)
 	if idConditionComplete >= 0 {
 		if status.Conditions[idConditionComplete].Status != conditionStatus {
 			status.Conditions[idConditionComplete].LastTransitionTime = now
@@ -76,7 +76,7 @@ func NewKanaryDeploymentStatusCondition(conditionType kanaryv1alpha1.KanaryDeplo
 	}
 }
 
-func searchKanaryDeploymentStatusConditionType(status *kanaryv1alpha1.KanaryDeploymentStatus, t kanaryv1alpha1.KanaryDeploymentConditionType) int {
+func getIndexForConditionType(status *kanaryv1alpha1.KanaryDeploymentStatus, t kanaryv1alpha1.KanaryDeploymentConditionType) int {
 	idCondition := -1
 	for i, condition := range status.Conditions {
 		if condition.Type == t {

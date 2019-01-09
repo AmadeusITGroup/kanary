@@ -76,8 +76,8 @@ type KanaryDeploymentSpecTraffic struct {
 	// if kanaryService is empty or not define, a service name will be generated from the
 	// serviceName provided in the KanaryDeploymentSpec.
 	KanaryService string `json:"kanaryService,omitempty"`
-	// Shadow
-	Shadow *KanaryDeploymentSpecTrafficShadow `json:"shadow,omitempty"`
+	// Mirror
+	Mirror *KanaryDeploymentSpecTrafficMirror `json:"mirror,omitempty"`
 }
 
 // KanaryDeploymentSpecTrafficSource defines the traffic source that targets the canary deployment pods
@@ -94,12 +94,12 @@ const (
 	// NoneKanaryDeploymentSpecTrafficSource means the canary deployment pods are not accessible. it can be use when the application
 	// don't define any service.
 	NoneKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "none"
-	// ShadowKanaryDeploymentSpecTrafficSource means that the canary deployment pods are target by a shadow traffic. This can be done only if istio is installed.
-	ShadowKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "shadow"
+	// MirrorKanaryDeploymentSpecTrafficSource means that the canary deployment pods are target by a mirror traffic. This can be done only if istio is installed.
+	MirrorKanaryDeploymentSpecTrafficSource KanaryDeploymentSpecTrafficSource = "mirror"
 )
 
-// KanaryDeploymentSpecTrafficShadow define the activation of shadow traffic on canary pods
-type KanaryDeploymentSpecTrafficShadow struct {
+// KanaryDeploymentSpecTrafficMirror define the activation of mirror traffic on canary pods
+type KanaryDeploymentSpecTrafficMirror struct {
 	Activate bool `json:"activate"`
 }
 
@@ -115,7 +115,7 @@ type KanaryDeploymentSpecValidation struct {
 // KanaryDeploymentSpecValidationManual defines the manual validation configuration
 type KanaryDeploymentSpecValidationManual struct {
 	StatusAfterDealine KanaryDeploymentSpecValidationManualDeadineStatus `json:"deadline,omitempty"`
-	Status         KanaryDeploymentSpecValidationManualStatus        `json:"status,omitempty"`
+	Status             KanaryDeploymentSpecValidationManualStatus        `json:"status,omitempty"`
 }
 
 // KanaryDeploymentSpecValidationManualDeadineStatus defines the validation manual deadine mode
@@ -205,10 +205,10 @@ type KanaryDeploymentConditionType string
 const (
 	// Activated means the KanaryDeployment strategy is activated
 	ActivatedKanaryDeploymentConditionType KanaryDeploymentConditionType = "Activated"
-	// Successeed means the KanaryDeployment strategy succeed,
+	// Succeeded means the KanaryDeployment strategy succeed,
 	// the deployment rolling-update is in progress or already done.
 	// it means also the deployment and the canary deployment have the same version.
-	SucceededKanaryDeploymentConditionType KanaryDeploymentConditionType = "Successeed"
+	SucceededKanaryDeploymentConditionType KanaryDeploymentConditionType = "Succeeded"
 	// FailedKanaryDeploymentConditionType is added in a kanarydeployment when the canary deployment
 	// process failed.
 	FailedKanaryDeploymentConditionType KanaryDeploymentConditionType = "Failed"

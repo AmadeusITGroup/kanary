@@ -45,7 +45,7 @@ func IsDefaultedKanaryDeploymentSpecTraffic(t *KanaryDeploymentSpecTraffic) bool
 		t.Source == ServiceKanaryDeploymentSpecTrafficSource ||
 		t.Source == KanaryServiceKanaryDeploymentSpecTrafficSource ||
 		t.Source == BothKanaryDeploymentSpecTrafficSource ||
-		t.Source == ShadowKanaryDeploymentSpecTrafficSource {
+		t.Source == MirrorKanaryDeploymentSpecTrafficSource {
 		return true
 	}
 	return false
@@ -106,16 +106,16 @@ func defaultKanaryDeploymentSpecTraffic(t *KanaryDeploymentSpecTraffic) {
 		t.Source == ServiceKanaryDeploymentSpecTrafficSource ||
 		t.Source == KanaryServiceKanaryDeploymentSpecTrafficSource ||
 		t.Source == BothKanaryDeploymentSpecTrafficSource ||
-		t.Source == ShadowKanaryDeploymentSpecTrafficSource) {
+		t.Source == MirrorKanaryDeploymentSpecTrafficSource) {
 		t.Source = NoneKanaryDeploymentSpecTrafficSource
 	}
 
-	if t.Shadow != nil {
-		defaultKanaryDeploymentSpecScaleTrafficShadow(t.Shadow)
+	if t.Mirror != nil {
+		defaultKanaryDeploymentSpecScaleTrafficMirror(t.Mirror)
 	}
 }
 
-func defaultKanaryDeploymentSpecScaleTrafficShadow(t *KanaryDeploymentSpecTrafficShadow) {
+func defaultKanaryDeploymentSpecScaleTrafficMirror(t *KanaryDeploymentSpecTrafficMirror) {
 	// TODO nothing todo for the moment
 }
 
