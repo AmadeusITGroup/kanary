@@ -47,19 +47,18 @@ func (k *kanaryServiceImpl) Traffic(kclient client.Client, reqLogger logr.Logger
 }
 
 func (k *kanaryServiceImpl) Cleanup(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
-	if k.conf.Source == kanaryv1alpha1.ShadowKanaryDeploymentSpecTrafficSource || k.conf.Source == kanaryv1alpha1.NoneKanaryDeploymentSpecTrafficSource {
+	if k.conf.Source == kanaryv1alpha1.MirrorKanaryDeploymentSpecTrafficSource || k.conf.Source == kanaryv1alpha1.NoneKanaryDeploymentSpecTrafficSource {
 		var needsReturn bool
 		needsReturn, result, err = k.clearServices(kclient, reqLogger, kd)
 		if needsReturn {
 			result.Requeue = true
 		}
 	}
-
 	return &kd.Status, result, err
 }
 
-// NewOverwriteSelector used to know if the Deployment.Spec.Selector needs to be overwrited for the kanary deployment
-func NewOverwriteSelector(kd *kanaryv1alpha1.KanaryDeployment) bool {
+// NeedOverwriteSelector used to know if the Deployment.Spec.Selector needs to be overwrited for the kanary deployment
+func NeedOverwriteSelector(kd *kanaryv1alpha1.KanaryDeployment) bool {
 	// if we dont want that
 	switch kd.Spec.Traffic.Source {
 	case kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource:
@@ -88,7 +87,7 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 	if service != nil {
 		switch k.conf.Source {
 		case kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource:
-			kanaryService := utils.NewCanaryServiceForKanaryDeployment(kd, service, NewOverwriteSelector(kd))
+			kanaryService := utils.NewCanaryServiceForKanaryDeployment(kd, service, NeedOverwriteSelector(kd))
 			currentKanaryService := &corev1.Service{}
 			err = kclient.Get(context.TODO(), types.NamespacedName{Name: kanaryService.Name, Namespace: kanaryService.Namespace}, currentKanaryService)
 			if err != nil && errors.IsNotFound(err) {

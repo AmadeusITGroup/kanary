@@ -218,9 +218,9 @@ func Test_manualImpl_Validation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reqLogger := log.WithValues("test:", tt.name)
 			m := &manualImpl{
-				deadline:         tt.fields.deadline,
-				status:           tt.fields.status,
-				validationPeriod: tt.fields.validationPeriod,
+				deadlineStatus:         tt.fields.deadline,
+				validationManualStatus: tt.fields.status,
+				validationPeriod:       tt.fields.validationPeriod,
 			}
 
 			gotStatus, gotResult, err := m.Validation(tt.args.kclient, reqLogger, tt.args.kd, tt.args.dep, tt.args.canaryDep)

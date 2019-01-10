@@ -41,7 +41,7 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 	switch spec.Traffic.Source {
 	case kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource:
 		trafficImpls[trafficKanaryService] = true
-	case kanaryv1alpha1.ShadowKanaryDeploymentSpecTrafficSource:
+	case kanaryv1alpha1.MirrorKanaryDeploymentSpecTrafficSource:
 		trafficImpls[trafficMirror] = true
 	default:
 	}
