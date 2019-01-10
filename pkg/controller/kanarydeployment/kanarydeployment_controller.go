@@ -131,7 +131,7 @@ func (r *ReconcileKanaryDeployment) Reconcile(request reconcile.Request) (reconc
 		return updateKanaryDeploymentStatus(r.client, reqLogger, instance, metav1.Now(), result, err)
 	}
 
-	return strategy.Manage(r.client, reqLogger, instance, deployment, canarydeployment)
+	return strategy.Apply(r.client, reqLogger, instance, deployment, canarydeployment)
 }
 
 func (r *ReconcileKanaryDeployment) manageDeployment(reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, name string) (*appsv1beta1.Deployment, bool, reconcile.Result, error) {
@@ -164,6 +164,9 @@ func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger log
 		kd.Status.CurrentHash = currentHash
 		// Deployment created successfully - return and requeue
 		return deployment, true, reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "failed to get Deployment", "Namespace", deployment.Namespace, "Deployment", deployment.Name)
+		return deployment, true, reconcile.Result{}, err
 	}
 
 	if kd.Status.CurrentHash != "" && kd.Status.CurrentHash != currentHash {

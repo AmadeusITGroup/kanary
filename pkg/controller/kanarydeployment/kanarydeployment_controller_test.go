@@ -123,7 +123,7 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, nil),
-					utilstest.NewDeployment(name, namespace, defaultReplicas),
+					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 				}...),
 			},
 			want: reconcile.Result{
@@ -162,8 +162,8 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, nil),
-					utilstest.NewDeployment(name, namespace, defaultReplicas),
-					utilstest.NewDeployment(name+"-kanary", namespace, 1),
+					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
+					utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
 				}...),
 			},
 			want: reconcile.Result{
@@ -192,8 +192,8 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
-					utilstest.NewDeployment(name, namespace, defaultReplicas),
-					utilstest.NewDeployment(name+"-kanary", namespace, 1),
+					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
+					utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
 				}...),
 			},
 			want: reconcile.Result{
@@ -224,8 +224,8 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
-					utilstest.NewDeployment(name, namespace, defaultReplicas),
-					utilstest.NewDeployment(name+"-kanary", namespace, 1),
+					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
+					utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
 					utilstest.NewService(serviceName, namespace, nil),
 				}...),
 			},

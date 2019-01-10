@@ -10,12 +10,18 @@ import (
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
-func NewDeployment(name, namespace string, replicas int32) *appsv1beta1.Deployment {
+// NewDeploymentOptions used to provide Deployment creation options
+type NewDeploymentOptions struct {
+	CreationTime *metav1.Time
+}
+
+// NewDeployment returns new Deployment instance for testing purpose
+func NewDeployment(name, namespace string, replicas int32, options *NewDeploymentOptions) *appsv1beta1.Deployment {
 	spec := &appsv1beta1.DeploymentSpec{
 		Replicas: &replicas,
 	}
 	md5, _ := utils.GenerateMD5DeploymentSpec(spec)
-	return &appsv1beta1.Deployment{
+	newDep := &appsv1beta1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
 			APIVersion: appsv1beta1.SchemeGroupVersion.String(),
@@ -27,6 +33,14 @@ func NewDeployment(name, namespace string, replicas int32) *appsv1beta1.Deployme
 		},
 		Spec: *spec,
 	}
+
+	if options != nil {
+		if options.CreationTime != nil {
+			newDep.CreationTimestamp = *options.CreationTime
+		}
+	}
+
+	return newDep
 }
 
 func NewService(name, namespace string, labelsSelector map[string]string) *corev1.Service {

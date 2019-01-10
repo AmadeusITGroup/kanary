@@ -126,8 +126,10 @@ func Test_manualImpl_Validation(t *testing.T) {
 		{
 			name: "default manual validation spec",
 			args: args{
-				kclient: fake.NewFakeClient([]runtime.Object{}...),
-				kd:      kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: defaultValidationSpec}),
+				kclient:   fake.NewFakeClient([]runtime.Object{}...),
+				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: defaultValidationSpec}),
+				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
+				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
 			},
 			wantStatusSucceed: false,
 			wantResult:        reconcile.Result{},
@@ -142,10 +144,10 @@ func Test_manualImpl_Validation(t *testing.T) {
 			},
 			args: args{
 				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
-				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas),
-				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1),
+				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
+				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
 				kclient: fake.NewFakeClient([]runtime.Object{
-					utilstest.NewDeployment(name, namespace, defaultReplicas),
+					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
 				}...),
 			},
@@ -161,10 +163,10 @@ func Test_manualImpl_Validation(t *testing.T) {
 			},
 			args: args{
 				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
-				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas),
-				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1),
+				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
+				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
 				kclient: fake.NewFakeClient([]runtime.Object{
-					utilstest.NewDeployment(name, namespace, defaultReplicas),
+					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
 				}...),
 			},
@@ -182,10 +184,10 @@ func Test_manualImpl_Validation(t *testing.T) {
 			},
 			args: args{
 				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{StartTime: &creationTime, Validation: validatedManualSpec}),
-				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas),
-				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1),
+				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
+				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
 				kclient: fake.NewFakeClient([]runtime.Object{
-					utilstest.NewDeployment(name, namespace, defaultReplicas),
+					utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
 				}...),
 			},
@@ -202,10 +204,10 @@ func Test_manualImpl_Validation(t *testing.T) {
 			},
 			args: args{
 				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{StartTime: &creationTime, Validation: validatedManualSpec}),
-				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas),
-				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1),
+				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
+				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
 				kclient: fake.NewFakeClient([]runtime.Object{
-					utilstest.NewDeployment(name, namespace, defaultReplicas),
+					utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
 				}...),
 			},

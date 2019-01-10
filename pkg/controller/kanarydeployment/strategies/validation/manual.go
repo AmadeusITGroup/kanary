@@ -40,9 +40,13 @@ func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 	if m.validationManualStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus {
 		needUpdateDeployment = true
 	}
-	deadlineReached := m.isDeadlinePeriodDone(kd.CreationTimestamp.Time, time.Now())
-	if deadlineReached && m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
-		needUpdateDeployment = true
+
+	var deadlineReached bool
+	if canaryDep != nil {
+		deadlineReached = m.isDeadlinePeriodDone(canaryDep.CreationTimestamp.Time, time.Now())
+		if deadlineReached && m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
+			needUpdateDeployment = true
+		}
 	}
 
 	if needUpdateDeployment {

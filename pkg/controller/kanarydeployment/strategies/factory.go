@@ -21,7 +21,7 @@ import (
 
 // Interface represent the strategy interface
 type Interface interface {
-	Manage(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (result reconcile.Result, err error)
+	Apply(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (result reconcile.Result, err error)
 }
 
 // NewStrategy return new instance of the strategy
@@ -68,7 +68,7 @@ type strategy struct {
 	validation validation.Interface
 }
 
-func (s *strategy) Manage(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (result reconcile.Result, err error) {
+func (s *strategy) Apply(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (result reconcile.Result, err error) {
 	var newStatus *kanaryv1alpha1.KanaryDeploymentStatus
 	newStatus, result, err = s.process(kclient, reqLogger, kd, dep, canarydep)
 
@@ -85,17 +85,29 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		return status, result, err
 	}
 
+	// First process cleanup
+	for impl, activated := range s.traffic {
+		if !activated {
+			status, result, err = impl.Cleanup(kclient, reqLogger, kd)
+			if err != nil {
+				return status, result, fmt.Errorf("error during Traffic, err: %v", err)
+			}
+			if needReturn(&result) {
+				return status, result, err
+			}
+		}
+	}
+
+	// Then apply Traffic configuration
 	for impl, activated := range s.traffic {
 		if activated {
 			status, result, err = impl.Traffic(kclient, reqLogger, kd, canarydep)
-		} else {
-			status, result, err = impl.Cleanup(kclient, reqLogger, kd)
-		}
-		if err != nil {
-			return status, result, fmt.Errorf("error during Traffic, err: %v", err)
-		}
-		if needReturn(&result) {
-			return status, result, err
+			if err != nil {
+				return status, result, fmt.Errorf("error during Traffic, err: %v", err)
+			}
+			if needReturn(&result) {
+				return status, result, err
+			}
 		}
 	}
 

@@ -66,9 +66,9 @@ func main() {
 		os.Exit(1)
 	}
 	defer func() {
-		errDefer := r.Unset()
-		if errDefer != nil {
-			log.Error(errDefer, "")
+		err = r.Unset()
+		if err != nil {
+			log.Error(err, "")
 		}
 	}()
 
