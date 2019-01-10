@@ -50,8 +50,7 @@ func TestKanary(t *testing.T) {
 		},
 	}
 
-	err := framework.AddToFrameworkScheme(apis.AddToScheme, kanaryList)
-	if err != nil {
+	if err := framework.AddToFrameworkScheme(apis.AddToScheme, kanaryList); err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 
