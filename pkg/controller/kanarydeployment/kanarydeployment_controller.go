@@ -24,6 +24,7 @@ import (
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies/traffic"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/comparison"
 )
 
 var log = logf.Log.WithName("controller_kanarydeployment")
@@ -136,7 +137,7 @@ func (r *ReconcileKanaryDeployment) Reconcile(request reconcile.Request) (reconc
 
 func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, name string) (*appsv1beta1.Deployment, bool, reconcile.Result, error) {
 	// check that the deployment template was not updated since the creation
-	currentHash, err := utils.GenerateMD5DeploymentSpec(&kd.Spec.Template.Spec)
+	currentHash, err := comparison.GenerateMD5DeploymentSpec(&kd.Spec.Template.Spec)
 	if err != nil {
 		reqLogger.Error(err, "failed to generate Deployment template MD5")
 		return nil, true, reconcile.Result{}, err

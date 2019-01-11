@@ -19,8 +19,5 @@ Pilot Source and traffic split using istio from the TrafficSpec (not only mirror
 ## Validation based on annotation (simple)
 Add annotationWatch (just like labelWatch)
 
-## NodePort And LoadBalancer Service
-In function NewCanaryServiceForKanaryDeployment the kanary serivce is cloned from the origin service. If the original service is of type NodePort or Loadbalancer service, it should be converted to cluster, and the nodeport field should be cleaned.
-
 ## Use Controller Cache
 In many places in the reconcile loop we get the deployment... maybe we can reuse the controller cache in some cases?

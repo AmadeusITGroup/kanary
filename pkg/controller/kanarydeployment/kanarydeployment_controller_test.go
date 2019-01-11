@@ -226,7 +226,7 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
 					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 					utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
-					utilstest.NewService(serviceName, namespace, nil),
+					utilstest.NewService(serviceName, namespace, nil, nil),
 				}...),
 			},
 			want: reconcile.Result{

@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
-	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/comparison"
 )
 
 // NewDeploymentOptions used to provide Deployment creation options
@@ -20,7 +20,7 @@ func NewDeployment(name, namespace string, replicas int32, options *NewDeploymen
 	spec := &appsv1beta1.DeploymentSpec{
 		Replicas: &replicas,
 	}
-	md5, _ := utils.GenerateMD5DeploymentSpec(spec)
+	md5, _ := comparison.GenerateMD5DeploymentSpec(spec)
 	newDep := &appsv1beta1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -43,8 +43,14 @@ func NewDeployment(name, namespace string, replicas int32, options *NewDeploymen
 	return newDep
 }
 
-func NewService(name, namespace string, labelsSelector map[string]string) *corev1.Service {
-	return &corev1.Service{
+// NewServiceOptions used to provide Service creation options
+type NewServiceOptions struct {
+	Type  corev1.ServiceType
+	Ports []corev1.ServicePort
+}
+
+func NewService(name, namespace string, labelsSelector map[string]string, options *NewServiceOptions) *corev1.Service {
+	newService := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: corev1.SchemeGroupVersion.String(),
@@ -57,4 +63,11 @@ func NewService(name, namespace string, labelsSelector map[string]string) *corev
 			Selector: labelsSelector,
 		},
 	}
+
+	if options != nil {
+		newService.Spec.Type = options.Type
+		newService.Spec.Ports = options.Ports
+	}
+
+	return newService
 }
