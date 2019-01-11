@@ -1,25 +1,93 @@
+
+![Kanary Logo](docs/kanary_logo.png)
+
 Kanary
 ======
 
-
 ## How to use it
 
-### Simple strategy
+The `KanaryDeployment.Spec` is split in 4 different part:
 
-As indicated by its name, this strategy aims to be the simplest strategy with some manual action to move between the different canary deployment steps.
+- `KanaryDeployment.Spec.Template`: represents the `Deployment` template that is it instantiated as canary deployment, and also as the Deployment update if the KanaryDeployment succeed.
+- `KanaryDeployment.Spec.Scale`: aggregates the scaling configuration for the canary deployment.
+- `KanaryDeployment.Spec.Traffic`: aggregates the traffic configuration that targets the canary deployment pod(s). it can be live traffic (behind the same service that the deployment pods), behind a specific "kanary" service, or receiving some "mirror" traffic.
+- `KanaryDeployment.Spec.Validation`: this section aggregates the kanaryDeployment validation configuration.
 
-It is also the default strategy if any other strategy has been configured in the ```KanaryDeployment.Spec.Strategy```.
+### Scale configuration
 
-the simple strategy step is configured thank the `mode` field, and can have 4 different values:
+Currently, only static scale configuration is available, which means you need to define the `replicas` for the canary deployment.
 
-- `deactivate`: corresponds to the mode where the canary deployment is deactivated which means the replicas value is set to 0.
-- `activate`: corresponds to the mode where the canary deployment is activated with the replicas value present in the strategy. If the value is not set, the replicas value is equal to the default replicas deployment value that is `1`.
-- `pause`: corresponds to the mode where any modification in the strategy will not be applied.
-- `apply`: corresponds to the last mode where the deployment update is propagated to the `principal` deployment managed by the KanaryDeployment. In addition to the `mode: apply` the 'operator' needs to provide also the hash present in the KanaryDeployment.Status.CurrentHash in order to validate the `apply` of a specific deployment template and so avoid any mistake.
+```yaml
+spec:
+  #...
+  scale:
+    static:
+      replicas: 1
+  #...
+```
 
-#### Create KanaryDeployment with `simple` strategy
+### Traffic configuration
 
-the following yaml file is an example of how you create a KanaryDeployment with the `simple` strategy:
+In the traffic section, the can define which source of traffic is targeting the canary deployment pods. Kanary defines several "sources":
+
+- `service`: canary pods are part of the pod behind the "production" service.
+- `kanary-service`: canary pods are behind a dedicated service, what is created by the Kanary controller. Canary pods don't received any production traffic.
+- `both`: in the case, the kanary-controller is configured to allow the canary pods to receive traffic like the `service` and `kanary-service` are configured in parallel.
+- `mirror`: canary pods are targeted by "mirror" traffic, this `source` depends on an Istio configuration.
+- `none`: canary pods didn't receive any traffic from a service.
+
+```yaml
+spec:
+  # ...
+  traffic:
+    source: <[service|kanary-service|both|mirror|none]>
+  # ...
+```
+
+### Validation configuration
+
+Kanary allows different mechanisms to validate that a KanaryDeployment is successfull or not:
+
+- `manual`: this validation mode requests to the user to update manually a field `spec.validation.manual.status` in order to inform the Kanary-controller that it can consider the canary deployment as "valid" or "invalid".
+- `labelWatch`: in this mode, the Kanary-controller will watch the present of label(s) on canary deployment|pod in order to know if the KanayDeployment is valid. If after the `spec.validation.validationPeriod` the controller didn't see the labels present on the pods or deployment, it means the KanaryDeployment is valid.
+- `promQL`: this mode is using prometheus metrics for knowing if the KanaryDeployment is valid or not. The user needs to provide a PromQL query and prometheus server connection information. The query needs to return "true" or "false", and can benefit from some templating value (deployment.name, service,name...)
+
+Then a common field in the validation section is the `spec.validation.validationPeriod`, This is the minimum period of time that the canary deployment needs to run and be considered as valid, before considering the KanaryDeployment as succeed and start the deployment update process.
+
+```yaml
+spec:
+  # ...
+  validation:
+    validationPeriod: 15m
+    # ...
+```
+
+#### Manual
+
+in `manual` validation strategy, you can initiate the configuration with an additional parameter: `spec.validation.manual.statusAfterDeadline`. This parameter will allow the kanary-controller to know if it needs to consider the KanaryDeployment as `valid` or `invalid` after the `validationPeriod`. if this parameter is set to `none` which is the default value, the kanary-controller will not take any decision after the `validationPeriod` and it will wait that you update the `spec.validation.manual.status` to `valid` or `invalid` to take action.
+
+```yaml
+spec:
+  # ...
+  validation:
+    validationPeriod: 15m
+    manual:
+      statusAfterDeadline: <[valid,invalid,none]>
+      #status:
+  # ...
+```
+
+#### LabelWatch
+
+// TODO
+
+#### PromQL
+
+// TODO
+
+### Basic example
+
+the following yaml file is an example of how you create a "basic" KanaryDeployment:
 
 ```yaml
 apiVersion: kanary.k8s.io/v1alpha1
@@ -30,79 +98,28 @@ metadata:
     app: nginx
 spec:
   serviceName: nginx
-  strategy:
-    simple:
+  deploymentName: nginx
+  scale:
+    static:
       replicas: 1
-      mode: deactivate
+  traffic:
+    source: both
+  validation:
+    manual:
+      statusAfterDeadline: none
   template:
     # deployment template
 ```
 
-This artifact will trigger the creation of 2 deployments:
-
-- `principal` Deployment: its name will be the same than the KanaryDeployment
-- `canary` Deployment: its name will be the KanaryDeployment name plus the prefix "-kanary"
+This artifact will trigger the creation of a new deployment: `canary` Deployment: its name will be the KanaryDeployment name with the prefix "-kanary"
 
 Also, a Service will be created in order to target only the Canary pods managed by the `canary` Deployment. This service is created only if the `KanaryDeployment.spec.serviceName` is defined.
 
-If the `deactivate` mode is set, the `canary` deployment replicas value is forced to `0`.
+#### Validate the KanaryDeployment with the manual mode
 
-#### Move to `activate` mode
+When you consider the canary deployment enough tested you can update the `spec.validation.manual.status` to `valid`or `invalid`.
 
-When you are ready to activate the canary testing of a new version of your application, you need to update the KanaryDeployment specification:
+- If you have chosen `valid`, automatically the kanary-controller will trigger the deployment update with the same template used to create the canary-deployment.
+- If you have chosen `invalid`. the KanaryDeployment status will be set as `Failed`, no additional action will be possible. Also, the canary pods will be removed from the "production" service.
 
-- Update the `spec.template` with your new application version definition.
-- Update the `spec.strategy.simple.mode` to `activate`.
-
-```yaml
-apiVersion: kanary.k8s.io/v1alpha1
-kind: KanaryDeployment
-metadata:
-  name: nginx
-  labels:
-    app: nginx
-spec:
-  serviceName: nginx
-  strategy:
-    simple:
-      replicas: 1
-      mode: activate
-  template:
-    # deployment template
-```
-
-Those update can be done at the same time, or with 2 differents KanaryDeployment updates. It will trigger the deployment of your new application only on the `canary` deployment instance.
-You will have all the time needed to validate this canary deployment. If never you detect an issue with the `canary` pods, you can set back the `spec.strategy.simple.mode` to `deactivate`; this action will
-force the `canary` deployment replicas is forced to `0`.
-
-#### Move to `apply` mode
-
-When you have validated properly you canary deployment, the next step is to move the `apply` mode.
-
-In this mode, the Kanary controller will update the `principal` Deployment. with the same Deployment template used for the `canary` deployment.
-
-to activate this mode you need to update two fields in the KanaryDeployment spec simple strategy:
-
-- Update the `spec.strategy.simple.mode` to `activate`.
-- Update the `spec.strategy.simple.applyHash` with the value present in the `status.currentHash` field. This is to avoid any unwanted deployment template update done by mistake between the `activate` and the `apply`.
-
-```yaml
-apiVersion: kanary.k8s.io/v1alpha1
-kind: KanaryDeployment
-metadata:
-  name: nginx
-  labels:
-    app: nginx
-spec:
-  serviceName: nginx
-  strategy:
-    simple:
-      replicas: 1
-      mode: apply
-      applyHash: sdsfsfjasfmadwdj9ad
-  template:
-    # deployment template
-    # ...
-status:
-    currentHash: sdsfsfjasfmadwdj9ad
-```
+Finally when you delete the KanaryDeployment instance, all the other resources created linked to it, will be also deleted.

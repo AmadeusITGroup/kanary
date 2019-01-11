@@ -15,7 +15,7 @@ spec:
     source: both
   validation:
     manual:
-      deadline: none
+      statusAfterDeadline: none
   template:
     spec:
       replicas: 3
