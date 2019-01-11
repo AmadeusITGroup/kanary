@@ -79,7 +79,7 @@ func (s *strategy) Apply(kclient client.Client, reqLogger logr.Logger, kd *kanar
 func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
 	status, result, err = s.scale.Scale(kclient, reqLogger, kd, canarydep)
 	if err != nil {
-		return status, result, fmt.Errorf("error during Scale process, err: %v", err)
+		return status, result, fmt.Errorf("error during Scale processing, err: %v", err)
 	}
 	if needReturn(&result) {
 		return status, result, err
@@ -90,7 +90,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		if !activated {
 			status, result, err = impl.Cleanup(kclient, reqLogger, kd)
 			if err != nil {
-				return status, result, fmt.Errorf("error during Traffic, err: %v", err)
+				return status, result, fmt.Errorf("error during Traffic Cleanup processing, err: %v", err)
 			}
 			if needReturn(&result) {
 				return status, result, err
@@ -103,17 +103,18 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		if activated {
 			status, result, err = impl.Traffic(kclient, reqLogger, kd, canarydep)
 			if err != nil {
-				return status, result, fmt.Errorf("error during Traffic, err: %v", err)
+				return status, result, fmt.Errorf("error during Traffic processing, err: %v", err)
 			}
 			if needReturn(&result) {
 				return status, result, err
 			}
+
 		}
 	}
 
 	status, result, err = s.validation.Validation(kclient, reqLogger, kd, dep, canarydep)
 	if err != nil {
-		return status, result, fmt.Errorf("error during Validation process, err: %v", err)
+		return status, result, fmt.Errorf("error during Validation processing, err: %v", err)
 	}
 	return status, result, err
 }

@@ -14,20 +14,18 @@ import (
 
 // UpdateKanaryDeploymentFunc used to update a KanaryDeployment with retry and timeout policy
 func UpdateKanaryDeploymentFunc(f *framework.Framework, namespace, name string, updateFunc func(kd *kanaryv1alpha1.KanaryDeployment), retryInterval, timeout time.Duration) error {
-	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		kd := &kanaryv1alpha1.KanaryDeployment{}
-		err2 := f.Client.Get(goctx.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, kd)
-		if err2 != nil {
+		if err := f.Client.Get(goctx.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, kd); err != nil {
 			return false, nil
 		}
 
 		updateKD := kd.DeepCopy()
 		updateFunc(updateKD)
-		err2 = f.Client.Update(goctx.TODO(), updateKD)
-		if err2 != nil {
+		if err := f.Client.Update(goctx.TODO(), updateKD); err != nil {
 			return false, nil
 		}
 		return true, nil
 	})
-	return err
+
 }

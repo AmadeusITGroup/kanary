@@ -13,7 +13,7 @@ import (
 )
 
 func WaitForFuncOnDeployment(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, f func(dep *appsv1beta1.Deployment) (bool, error), retryInterval, timeout time.Duration) error {
-	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		deployment, err := kubeclient.AppsV1beta1().Deployments(namespace).Get(name, metav1.GetOptions{IncludeUninitialized: true})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -27,5 +27,4 @@ func WaitForFuncOnDeployment(t *testing.T, kubeclient kubernetes.Interface, name
 		t.Logf("Waiting for condition function to be true ok for %s deployment (%t/%v)\n", name, ok, err)
 		return ok, err
 	})
-	return err
 }
