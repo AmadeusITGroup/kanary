@@ -2,14 +2,11 @@ package kanarydeployment
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	"github.com/go-logr/logr"
 
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,23 +14,19 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies/traffic"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
 var log = logf.Log.WithName("controller_kanarydeployment")
-
-const (
-	KanaryDeploymentIsKanaryLabelKey   = "kanary.k8s.io/iskanary"
-	KanaryDeploymentKanaryNameLabelKey = "kanary.k8s.io/name"
-	KanaryDeploymentActivateLabelKey   = "kanary.k8s.io/canary-pod"
-	KanaryDeploymentLabelValueTrue     = "true"
-	KanaryDeploymentLabelValueFalse    = "false"
-)
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -70,11 +63,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		IsController: true,
 		OwnerType:    &kanaryv1alpha1.KanaryDeployment{},
 	})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 var _ reconcile.Reconciler = &ReconcileKanaryDeployment{}
@@ -92,7 +81,7 @@ type ReconcileKanaryDeployment struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileKanaryDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := log.WithValues("Namespace", request.Namespace, "KanaryDeployment", request.Name)
 	reqLogger.Info("Reconciling KanaryDeployment")
 
 	// Fetch the KanaryDeployment instance
@@ -109,166 +98,112 @@ func (r *ReconcileKanaryDeployment) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	// Check if the deployment already exists, if not create a new one
-	deployment := &appsv1beta1.Deployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: getDeploymentName(instance), Namespace: instance.Namespace}, deployment)
-	if err != nil && errors.IsNotFound(err) {
-		deployment = r.deploymentForKanaryDeployment(instance)
-		reqLogger.Info("Creating a new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
-		err = r.client.Create(context.TODO(), deployment)
+	if !kanaryv1alpha1.IsDefaultedKanaryDeployment(instance) {
+		reqLogger.Info("Defaulting values")
+		defaultedInstance := kanaryv1alpha1.DefaultKanaryDeployment(instance)
+		err = r.client.Update(context.TODO(), defaultedInstance)
 		if err != nil {
-			reqLogger.Error(err, "failed to create new Deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+			reqLogger.Error(err, "failed to update KanaryDeployment")
 			return reconcile.Result{}, err
 		}
-		// Deployment created successfully - return and requeue
+		// KanaryDeployment is now defaulted return and requeue
 		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "failed to get Deployment")
+	}
+
+	// Check if the deployment already exists, if not create a new one
+	deployment, needsReturn, result, err := r.manageDeploymentCreationFunc(reqLogger, instance, utils.GetDeploymentName(instance), utils.NewDeploymentFromKanaryDeploymentTemplate)
+	if needsReturn {
+		return updateKanaryDeploymentStatus(r.client, reqLogger, instance, metav1.Now(), result, err)
+	}
+
+	var canarydeployment *appsv1beta1.Deployment
+	canarydeployment, needsReturn, result, err = r.manageCanaryDeploymentCreation(reqLogger, instance, utils.GetCanaryDeploymentName(instance))
+	if needsReturn {
+		return updateKanaryDeploymentStatus(r.client, reqLogger, instance, metav1.Now(), result, err)
+	}
+
+	strategy, err := strategies.NewStrategy(&instance.Spec)
+	if err != nil {
+		reqLogger.Error(err, "failed to instance the KanaryDeployment strategies")
 		return reconcile.Result{}, err
 	}
+	if strategy == nil {
+		return updateKanaryDeploymentStatus(r.client, reqLogger, instance, metav1.Now(), result, err)
+	}
 
-	canarydeployment := &appsv1beta1.Deployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: getCanaryDeploymentName(instance), Namespace: instance.Namespace}, canarydeployment)
+	return strategy.Apply(r.client, reqLogger, instance, deployment, canarydeployment)
+}
+
+func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, name string) (*appsv1beta1.Deployment, bool, reconcile.Result, error) {
+	// check that the deployment template was not updated since the creation
+	currentHash, err := utils.GenerateMD5DeploymentSpec(&kd.Spec.Template.Spec)
+	if err != nil {
+		reqLogger.Error(err, "failed to generate Deployment template MD5")
+		return nil, true, reconcile.Result{}, err
+	}
+
+	deployment := &appsv1beta1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: kd.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
-		canarydeployment = r.canaryDeploymentForKanaryDeployment(instance)
-		// set by default canary deployment to replicas=0
-		canarydeployment.Spec.Replicas = newInt32(0)
-
-		reqLogger.Info("Creating a new Canary Deployment", "Deployment.Namespace", canarydeployment.Namespace, "Deployment.Name", canarydeployment.Name)
-		err = r.client.Create(context.TODO(), canarydeployment)
+		deployment, err = utils.NewCanaryDeploymentFromKanaryDeploymentTemplate(kd, r.scheme, false, traffic.NeedOverwriteSelector(kd))
 		if err != nil {
-			reqLogger.Error(err, "failed to create new Deployment", "Deployment.Namespace", canarydeployment.Namespace, "Deployment.Name", canarydeployment.Name)
-			return reconcile.Result{}, err
+			reqLogger.Error(err, "failed to create the Deployment artifact")
+			return deployment, true, reconcile.Result{}, err
+		}
+
+		reqLogger.Info("Creating a new Deployment")
+		err = r.client.Create(context.TODO(), deployment)
+		if err != nil {
+			reqLogger.Error(err, "failed to create new Deployment")
+			return deployment, true, reconcile.Result{}, err
+		}
+		kd.Status.CurrentHash = currentHash
+		// Deployment created successfully - return and requeue
+		return deployment, true, reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "failed to get Deployment")
+		return deployment, true, reconcile.Result{}, err
+	}
+
+	if kd.Status.CurrentHash != "" && kd.Status.CurrentHash != currentHash {
+		err = r.client.Delete(context.TODO(), deployment)
+		if err != nil {
+			reqLogger.Error(err, "failed to delete deprecated Deployment")
+			return deployment, true, reconcile.Result{RequeueAfter: time.Second}, err
+		}
+	}
+
+	return deployment, false, reconcile.Result{}, err
+}
+
+func (r *ReconcileKanaryDeployment) manageDeploymentCreationFunc(reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, name string, createFunc func(*kanaryv1alpha1.KanaryDeployment, *runtime.Scheme, bool) (*appsv1beta1.Deployment, error)) (*appsv1beta1.Deployment, bool, reconcile.Result, error) {
+	deployment := &appsv1beta1.Deployment{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: kd.Namespace}, deployment)
+	if err != nil && errors.IsNotFound(err) {
+		deployment, err = createFunc(kd, r.scheme, false)
+		if err != nil {
+			reqLogger.Error(err, "failed to create the Deployment artifact")
+			return deployment, true, reconcile.Result{}, err
+		}
+
+		reqLogger.Info("Creating a new Deployment")
+		err = r.client.Create(context.TODO(), deployment)
+		if err != nil {
+			reqLogger.Error(err, "failed to create new Deployment")
+			return deployment, true, reconcile.Result{}, err
 		}
 		// Deployment created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
+		return deployment, true, reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "failed to get Deployment")
+		return deployment, true, reconcile.Result{}, err
 	}
 
-	// Retrieve service if defined
-	var service *corev1.Service
-	if instance.Spec.ServiceName != "" {
-		service = &corev1.Service{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Spec.ServiceName, Namespace: instance.Namespace}, service)
-		if err != nil && errors.IsNotFound(err) {
-			// TODO update status, to say that the service didn't exist
-
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Duration(time.Second)}, err
-		} else if err != nil {
-			reqLogger.Error(err, "failed to get Deployment")
-			return reconcile.Result{}, err
-		}
-	}
-
-	if service != nil {
-		kanaryService := r.canaryServiceForKanaryDeployment(instance, service)
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: kanaryService.Name, Namespace: kanaryService.Namespace}, kanaryService)
-		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("Creating a new Canary Service", "Service.Namespace", kanaryService.Namespace, "Service.Name", kanaryService.Name)
-			err = r.client.Create(context.TODO(), kanaryService)
-			if err != nil {
-				reqLogger.Error(err, "failed to create new CanaryService", "Service.Namespace", kanaryService.Namespace, "Service.Name", kanaryService.Name)
-				return reconcile.Result{}, err
-			}
-			// Deployment created successfully - return and requeue
-			return reconcile.Result{Requeue: true}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "failed to get Service")
-			return reconcile.Result{}, err
-		}
-	}
-
-	// TODO implement this function
-
-	return reconcile.Result{}, nil
+	return deployment, false, reconcile.Result{}, err
 }
 
-// deploymentForKanaryDeployment returns a Deployment object
-func (r *ReconcileKanaryDeployment) deploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment) *appsv1beta1.Deployment {
-	ls := labelsForKanaryDeploymentd(kd.Name)
-
-	dep := &appsv1beta1.Deployment{
-		TypeMeta:   kd.Spec.Template.TypeMeta,
-		ObjectMeta: kd.Spec.Template.ObjectMeta,
-		Spec:       kd.Spec.Template.Spec,
-	}
-
-	if dep.Labels == nil {
-		dep.Labels = map[string]string{}
-	}
-	for key, val := range ls {
-		dep.Labels[key] = val
-	}
-
-	dep.Name = getDeploymentName(kd)
-	if dep.Namespace == "" {
-		dep.Namespace = kd.Namespace
-	}
-
-	// Set KanaryDeployment instance as the owner and controller
-	controllerutil.SetControllerReference(kd, dep, r.scheme)
-	return dep
-}
-
-// canaryDeploymentForKanaryDeployment returns a Deployment object
-func (r *ReconcileKanaryDeployment) canaryDeploymentForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment) *appsv1beta1.Deployment {
-	dep := r.deploymentForKanaryDeployment(kd)
-	dep.Name = getCanaryDeploymentName(kd)
-	if dep.Spec.Template.Labels == nil {
-		dep.Spec.Template.Labels = map[string]string{}
-	}
-	dep.Spec.Template.Labels[KanaryDeploymentActivateLabelKey] = KanaryDeploymentLabelValueTrue
-
-	return dep
-}
-
-// canaryServiceForKanaryDeployment returns a Service object
-func (r *ReconcileKanaryDeployment) canaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, service *corev1.Service) *corev1.Service {
-	kanaryServiceName := kd.Spec.Strategy.ServiceName
-	if kanaryServiceName == "" {
-		kanaryServiceName = fmt.Sprintf("%s-kanary", service.Name)
-	}
-
-	labelSelector := map[string]string{}
-	for key, val := range service.Spec.Selector {
-		labelSelector[key] = val
-	}
-	labelSelector[KanaryDeploymentActivateLabelKey] = KanaryDeploymentLabelValueTrue
-
-	return &corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kanaryServiceName,
-			Namespace: kd.Namespace,
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: labelSelector,
-		},
-	}
-}
-
-func getDeploymentName(kd *kanaryv1alpha1.KanaryDeployment) string {
-	name := kd.Spec.Template.ObjectMeta.Name
-	if name == "" {
-		name = kd.Name
-	}
-	return name
-}
-
-func getCanaryDeploymentName(kd *kanaryv1alpha1.KanaryDeployment) string {
-	return fmt.Sprintf("%s-kanary", getDeploymentName(kd))
-}
-
-// belonging to the given KanaryDeployment CR name.
-func labelsForKanaryDeploymentd(name string) map[string]string {
-	return map[string]string{
-		KanaryDeploymentIsKanaryLabelKey:   KanaryDeploymentLabelValueTrue,
-		KanaryDeploymentKanaryNameLabelKey: name,
-	}
-}
-
-func newInt32(i int32) *int32 {
-	return &i
+func updateKanaryDeploymentStatus(kclient client.StatusWriter, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, now metav1.Time, result reconcile.Result, err error) (reconcile.Result, error) {
+	newStatus := kd.Status.DeepCopy()
+	utils.UpdateKanaryDeploymentStatusConditionsFailure(newStatus, now, err)
+	return utils.UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err)
 }

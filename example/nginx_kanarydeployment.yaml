@@ -1,0 +1,34 @@
+apiVersion: kanary.k8s.io/v1alpha1
+kind: KanaryDeployment
+metadata:
+  name: nginx-dep
+  labels:
+    app: nginx
+spec:
+  serviceName: nginx
+  deploymentName: nginx-dep
+  scale:
+    static:
+      activate: true
+      replicas: 1
+  traffic:
+    source: both
+  validation:
+    manual:
+      deadline: none
+  template:
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: nginx
+      template:
+        metadata:
+          labels:
+            app: nginx
+        spec:
+          containers:
+          - name: nginx
+            image: nginx:latest
+            ports:
+            - containerPort: 80
