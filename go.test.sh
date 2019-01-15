@@ -17,6 +17,17 @@ if [ ! -z "$SKIP_RACE" ]; then
   race_flag=""
 fi
 
+verbose=${VERBOSE}
+while [ $# -ne 0 ]
+do
+    arg="$1"
+    case "$arg" in
+        -v)
+           verbose="-v"
+    esac
+    shift
+done
+
 generate_cover_data() {
   [ -d "${COVER}" ] && rm -rf "${COVER:?}/*"
   [ -d "${COVER}" ] || mkdir -p "${COVER}"
@@ -26,7 +37,7 @@ generate_cover_data() {
   for pkg in "${pkgs[@]}"; do
     f="${COVER}/$(echo $pkg | tr / -).cover"
     tout="${COVER}/$(echo $pkg | tr / -)_tests.out"
-    go test -v $race_flag -covermode="$mode" -coverprofile="$f" "$pkg" | tee "$tout"
+    go test $verbose $race_flag -covermode="$mode" -coverprofile="$f" "$pkg" | tee "$tout"
   done
 
   echo "mode: $mode" >"$profile"

@@ -2,11 +2,14 @@ package kanarydeployment
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
 
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,7 +86,7 @@ type ReconcileKanaryDeployment struct {
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileKanaryDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Namespace", request.Namespace, "KanaryDeployment", request.Name)
-	reqLogger.Info("Reconciling KanaryDeployment")
+	reqLogger.V(4).Info("Reconciling KanaryDeployment")
 
 	// Fetch the KanaryDeployment instance
 	instance := &kanaryv1alpha1.KanaryDeployment{}
@@ -98,9 +101,10 @@ func (r *ReconcileKanaryDeployment) Reconcile(request reconcile.Request) (reconc
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+	reqLogger.V(4).Info(fmt.Sprintf("Reconciling KanaryDeployment Status: %v", instance.Status))
 
 	if !kanaryv1alpha1.IsDefaultedKanaryDeployment(instance) {
-		reqLogger.Info("Defaulting values")
+		reqLogger.V(4).Info("Defaulting values")
 		defaultedInstance := kanaryv1alpha1.DefaultKanaryDeployment(instance)
 		err = r.client.Update(context.TODO(), defaultedInstance)
 		if err != nil {
@@ -144,23 +148,28 @@ func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger log
 	}
 
 	deployment := &appsv1beta1.Deployment{}
+	result := reconcile.Result{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: kd.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
 		deployment, err = utils.NewCanaryDeploymentFromKanaryDeploymentTemplate(kd, r.scheme, false, traffic.NeedOverwriteSelector(kd))
 		if err != nil {
 			reqLogger.Error(err, "failed to create the Deployment artifact")
-			return deployment, true, reconcile.Result{}, err
+			return deployment, true, result, err
 		}
 
 		reqLogger.Info("Creating a new Deployment")
 		err = r.client.Create(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "failed to create new Deployment")
-			return deployment, true, reconcile.Result{}, err
+			return deployment, true, result, err
 		}
-		kd.Status.CurrentHash = currentHash
+		newStatus := kd.Status.DeepCopy()
+		newStatus.CurrentHash = currentHash
+		utils.UpdateKanaryDeploymentStatusCondition(newStatus, metav1.Now(), kanaryv1alpha1.ActivatedKanaryDeploymentConditionType, corev1.ConditionTrue, "")
+		result.Requeue = true
+		result, err = utils.UpdateKanaryDeploymentStatus(r.client, reqLogger, kd, newStatus, result, err)
 		// Deployment created successfully - return and requeue
-		return deployment, true, reconcile.Result{Requeue: true}, nil
+		return deployment, true, result, nil
 	} else if err != nil {
 		reqLogger.Error(err, "failed to get Deployment")
 		return deployment, true, reconcile.Result{}, err
@@ -187,7 +196,7 @@ func (r *ReconcileKanaryDeployment) manageDeploymentCreationFunc(reqLogger logr.
 			return deployment, true, reconcile.Result{}, err
 		}
 
-		reqLogger.Info("Creating a new Deployment")
+		reqLogger.V(4).Info("Creating a new Deployment")
 		err = r.client.Create(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "failed to create new Deployment")
@@ -203,7 +212,7 @@ func (r *ReconcileKanaryDeployment) manageDeploymentCreationFunc(reqLogger logr.
 	return deployment, false, reconcile.Result{}, err
 }
 
-func updateKanaryDeploymentStatus(kclient client.StatusWriter, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, now metav1.Time, result reconcile.Result, err error) (reconcile.Result, error) {
+func updateKanaryDeploymentStatus(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, now metav1.Time, result reconcile.Result, err error) (reconcile.Result, error) {
 	newStatus := kd.Status.DeepCopy()
 	utils.UpdateKanaryDeploymentStatusConditionsFailure(newStatus, now, err)
 	return utils.UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err)

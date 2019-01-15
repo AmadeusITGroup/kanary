@@ -18,6 +18,7 @@ import (
 
 	apis "github.com/amadeusitgroup/kanary/pkg/apis"
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	utilsctrl "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 	"github.com/amadeusitgroup/kanary/test/e2e/utils"
 )
 
@@ -57,6 +58,8 @@ func TestKanary(t *testing.T) {
 	// run subtests
 	t.Run("kanary-group", func(t *testing.T) {
 		t.Run("Init-Kanary", InitKanaryDeploymentInstance)
+		t.Run("Manual-Validation", ManualValidationAfterDeadline)
+		t.Run("Manual-Invalidation", ManualInvalidationAfterDeadline)
 	})
 }
 
@@ -84,7 +87,7 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	newDeployment := newDeployment(namespace, name, "nginx:1.15.4", replicas)
+	newDeployment := newDeployment(namespace, name, "nginx", "1.15.4", replicas)
 	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +99,7 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	}
 
 	// Init KanaryDeployment with defaulted Strategy (desactiviated)
-	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "nginx:latest", replicas, nil, nil, nil)
+	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "nginx", "latest", replicas, nil, nil, nil)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -140,6 +143,167 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	}
 }
 
+func ManualValidationAfterDeadline(t *testing.T) {
+	t.Parallel()
+	f, ctx, err := InitKanaryOperator(t)
+	defer ctx.Cleanup()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		t.Fatal(fmt.Errorf("could not get namespace: %v", err))
+	}
+	name := RandStringRunes(6)
+	replicas := int32(3)
+	deploymentName := name
+	serviceName := ""
+	canaryName := name + "-kanary"
+
+	newDeployment := newDeployment(namespace, name, "nginx", "1.15.4", replicas)
+	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, deploymentName, int(replicas), retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
+		ValidationPeriod: &metav1.Duration{Duration: time.Minute},
+		Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
+			StatusAfterDealine: kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus,
+		},
+	}
+	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "nginx", "latest", replicas, nil, nil, validationConfig)
+	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// canary deployment is replicas is setted to 1.
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, canaryName, 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// test if the deployment have been updated
+	isUpdated := func(dep *appsv1.Deployment) (bool, error) {
+		if !(len(dep.Spec.Template.Spec.Containers) > 0 && dep.Spec.Template.Spec.Containers[0].Image == "nginx:latest") {
+			return false, nil
+		}
+
+		if dep.Status.UpdatedReplicas == dep.Status.AvailableReplicas {
+			return true, nil
+		}
+		return false, nil
+	}
+	// check the update on the master deployment
+	err = utils.WaitForFuncOnDeployment(t, f.KubeClient, namespace, name, isUpdated, retryInterval, 2*timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func ManualInvalidationAfterDeadline(t *testing.T) {
+	t.Parallel()
+	f, ctx, err := InitKanaryOperator(t)
+	defer ctx.Cleanup()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		t.Fatal(fmt.Errorf("could not get namespace: %v", err))
+	}
+	name := RandStringRunes(6)
+	replicas := int32(3)
+	deploymentName := name
+	serviceName := name
+	canaryName := name + "-kanary"
+
+	newService := newService(namespace, serviceName, map[string]string{"app": name})
+	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newDeployment := newDeployment(namespace, name, "nginx", "1.15.4", replicas)
+	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, deploymentName, int(replicas), retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	invalidationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
+		ValidationPeriod: &metav1.Duration{Duration: time.Minute},
+		Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
+			StatusAfterDealine: kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus,
+		},
+	}
+	trafficConfig := &kanaryv1alpha1.KanaryDeploymentSpecTraffic{
+		Source: kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource,
+	}
+	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "nginx", "latest", replicas, nil, trafficConfig, invalidationConfig)
+	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// canary deployment is replicas is setted to 1.
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, canaryName, 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// wait that the canary pod is behind the service
+	checkEndpoints := func(eps *corev1.Endpoints, wantedPod int) (bool, error) {
+		nbPod := 0
+		for _, sub := range eps.Subsets {
+			nbPod += len(sub.Addresses)
+		}
+		if wantedPod != nbPod {
+			return false, nil
+		}
+		return true, nil
+	}
+
+	check4Endpoints := func(eps *corev1.Endpoints) (bool, error) {
+		return checkEndpoints(eps, 4)
+	}
+
+	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check4Endpoints, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checkInvalidStatus := func(kd *kanaryv1alpha1.KanaryDeployment) (bool, error) {
+		if utilsctrl.IsKanaryDeploymentFailed(&kd.Status) {
+			return true, nil
+		}
+		return false, nil
+	}
+	utils.WaitForFuncOnKanaryDeployment(t, f.Client, namespace, name, checkInvalidStatus, retryInterval, 2*timeout)
+
+	// check that pods are not anymore behind the service
+	check3Endpoints := func(eps *corev1.Endpoints) (bool, error) {
+		return checkEndpoints(eps, 3)
+	}
+	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check3Endpoints, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+}
+
 func updateDeploymentFunc(f *framework.Framework, name, namespace string, updateFunc func(kd *kanaryv1alpha1.KanaryDeployment)) error {
 	kd := &kanaryv1alpha1.KanaryDeployment{}
 	err := f.Client.Get(goctx.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, kd)
@@ -175,7 +339,7 @@ func InitKanaryOperator(t *testing.T) (*framework.Framework, *framework.TestCtx,
 	return f, ctx, err
 }
 
-func newDeployment(namespace, name, image string, replicas int32) *appsv1.Deployment {
+func newDeployment(namespace, name, image, tag string, replicas int32) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -185,26 +349,26 @@ func newDeployment(namespace, name, image string, replicas int32) *appsv1.Deploy
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: newDeploymentSpec(name, image, replicas),
+		Spec: newDeploymentSpec(name, image, tag, replicas),
 	}
 }
 
-func newDeploymentSpec(name, image string, replicas int32) appsv1.DeploymentSpec {
+func newDeploymentSpec(name, image, tag string, replicas int32) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: &replicas,
 		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": name},
+			MatchLabels: map[string]string{"app": name, "version": tag},
 		},
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{"app": name},
+				Labels: map[string]string{"app": name, "version": tag},
 			},
 
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
 						Name:  "nginx",
-						Image: image,
+						Image: fmt.Sprintf("%s:%s", image, tag),
 						Ports: []corev1.ContainerPort{
 							{ContainerPort: 80},
 						},
@@ -215,7 +379,7 @@ func newDeploymentSpec(name, image string, replicas int32) appsv1.DeploymentSpec
 	}
 }
 
-func newKanaryDeployment(namespace, name, deploymentName, serviceName, image string, replicas int32, scale *kanaryv1alpha1.KanaryDeploymentSpecScale, traffic *kanaryv1alpha1.KanaryDeploymentSpecTraffic, validation *kanaryv1alpha1.KanaryDeploymentSpecValidation) *kanaryv1alpha1.KanaryDeployment {
+func newKanaryDeployment(namespace, name, deploymentName, serviceName, image, tag string, replicas int32, scale *kanaryv1alpha1.KanaryDeploymentSpecScale, traffic *kanaryv1alpha1.KanaryDeploymentSpecTraffic, validation *kanaryv1alpha1.KanaryDeploymentSpecValidation) *kanaryv1alpha1.KanaryDeployment {
 	kd := &kanaryv1alpha1.KanaryDeployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "KanaryDeployment",
@@ -229,7 +393,7 @@ func newKanaryDeployment(namespace, name, deploymentName, serviceName, image str
 			ServiceName:    serviceName,
 			DeploymentName: deploymentName,
 			Template: kanaryv1alpha1.DeploymentTemplate{
-				Spec: newDeploymentSpec(name, image, replicas),
+				Spec: newDeploymentSpec(name, image, tag, replicas),
 			},
 		},
 	}

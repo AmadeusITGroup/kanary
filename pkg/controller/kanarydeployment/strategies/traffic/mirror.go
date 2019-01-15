@@ -26,6 +26,6 @@ func (s *mirrorImpl) Traffic(kclient client.Client, reqLogger logr.Logger, kd *k
 	return
 }
 
-func (s *mirrorImpl) Cleanup(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
+func (s *mirrorImpl) Cleanup(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, canaryDep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
 	return
 }

@@ -34,7 +34,7 @@ func TestNewCanaryServiceForKanaryDeployment(t *testing.T) {
 				service:        utilstest.NewService(name, namespace, nil, &utilstest.NewServiceOptions{Type: corev1.ServiceTypeNodePort, Ports: []corev1.ServicePort{{Port: 8080, NodePort: 3010}}}),
 				overwriteLabel: false,
 			},
-			want: utilstest.NewService(name+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentActivateLabelKey: kanaryv1alpha1.KanaryDeploymentLabelValueTrue}, &utilstest.NewServiceOptions{Type: corev1.ServiceTypeClusterIP, Ports: []corev1.ServicePort{{Port: 8080}}}),
+			want: utilstest.NewService(name+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentActivateLabelKey: kanaryv1alpha1.KanaryDeploymentLabelValueTrue, kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name}, &utilstest.NewServiceOptions{Type: corev1.ServiceTypeClusterIP, Ports: []corev1.ServicePort{{Port: 8080}}}),
 		},
 		{
 			name: "loadbalancer service",
@@ -43,7 +43,7 @@ func TestNewCanaryServiceForKanaryDeployment(t *testing.T) {
 				service:        utilstest.NewService(name, namespace, nil, &utilstest.NewServiceOptions{Type: corev1.ServiceTypeLoadBalancer}),
 				overwriteLabel: false,
 			},
-			want: utilstest.NewService(name+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentActivateLabelKey: kanaryv1alpha1.KanaryDeploymentLabelValueTrue}, &utilstest.NewServiceOptions{Type: corev1.ServiceTypeClusterIP}),
+			want: utilstest.NewService(name+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentActivateLabelKey: kanaryv1alpha1.KanaryDeploymentLabelValueTrue, kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name}, &utilstest.NewServiceOptions{Type: corev1.ServiceTypeClusterIP}),
 		},
 	}
 	for _, tt := range tests {

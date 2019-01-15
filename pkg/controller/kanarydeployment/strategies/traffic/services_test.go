@@ -5,21 +5,17 @@ import (
 	"testing"
 	"time"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-
-	"k8s.io/client-go/kubernetes/scheme"
-
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
-
-	"k8s.io/apimachinery/pkg/runtime"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 	kanaryv1alpha1test "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1/test"
 	utilstest "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/test"
+	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 func Test_kanaryServiceImpl_Traffic(t *testing.T) {
@@ -137,11 +133,29 @@ func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 		kanaryServiceTraffic = &kanaryv1alpha1.KanaryDeploymentSpecTraffic{
 			Source: kanaryv1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource,
 		}
+
+		serviceTraffic = &kanaryv1alpha1.KanaryDeploymentSpecTraffic{
+			Source: kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource,
+		}
+
+		noneTraffic = &kanaryv1alpha1.KanaryDeploymentSpecTraffic{
+			Source: kanaryv1alpha1.NoneKanaryDeploymentSpecTrafficSource,
+		}
+
+		statusFailed = &kanaryv1alpha1.KanaryDeploymentStatus{
+			Conditions: []kanaryv1alpha1.KanaryDeploymentCondition{
+				{
+					Type:   kanaryv1alpha1.FailedKanaryDeploymentConditionType,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		}
 	)
 
 	type args struct {
-		kclient client.Client
-		kd      *kanaryv1alpha1.KanaryDeployment
+		kclient   client.Client
+		kd        *kanaryv1alpha1.KanaryDeployment
+		canaryDep *appsv1beta1.Deployment
 	}
 	tests := []struct {
 		name       string
@@ -151,6 +165,7 @@ func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 		wantErr    bool
 		wantFunc   func(kclient client.Client, kd *kanaryv1alpha1.KanaryDeployment) error
 	}{
+
 		{
 			name: "service not active, one service to clean",
 			args: args{
@@ -163,6 +178,7 @@ func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 			wantResult: reconcile.Result{Requeue: true},
 			wantErr:    false,
 		},
+
 		{
 			name: "service not active, nothing to delete",
 			args: args{
@@ -185,6 +201,35 @@ func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 			wantResult: reconcile.Result{},
 			wantErr:    false,
 		},
+
+		{
+			name: "kd status failed, service not activated",
+			args: args{
+				kclient: fake.NewFakeClient([]runtime.Object{
+					utilstest.NewService(serviceName, namespace, map[string]string{}, nil),
+				}...),
+				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: noneTraffic, Status: statusFailed}),
+				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
+			},
+			wantStatus: statusFailed,
+			wantResult: reconcile.Result{},
+			wantErr:    false,
+		},
+		{
+			name: "kd status failed, service activated, desactivate",
+			args: args{
+				kclient: fake.NewFakeClient([]runtime.Object{
+					utilstest.NewService(serviceName, namespace, map[string]string{"app": "foo"}, nil),
+					utilstest.NewService(serviceName+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name, "app": "foo"}, nil),
+					utilstest.NewPod(name, namespace, "hash", &utilstest.NewPodOptions{Labels: map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name, "app": "foo", "version": "v2"}}),
+				}...),
+				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: serviceTraffic, Status: statusFailed}),
+				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{Selector: map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name, "app": "foo", "version": "v2"}}),
+			},
+			wantStatus: statusFailed,
+			wantResult: reconcile.Result{Requeue: true},
+			wantErr:    false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -192,7 +237,7 @@ func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 			c := &kanaryServiceImpl{
 				conf: &tt.args.kd.Spec.Traffic,
 			}
-			gotStatus, gotResult, err := c.Cleanup(tt.args.kclient, reqLogger, tt.args.kd)
+			gotStatus, gotResult, err := c.Cleanup(tt.args.kclient, reqLogger, tt.args.kd, tt.args.canaryDep)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("cleanupImpl.Traffic() error = %v, wantErr %v", err, tt.wantErr)
 				return

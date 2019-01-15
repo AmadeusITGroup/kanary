@@ -10,9 +10,6 @@ Validate that the selector of the service in the spec is really selecting the po
 A pod can be addressed by multiple service.
 Should we propose to list the servicename, or list the trafficSpec, or just propose to create a different KanaryDeployment for each service? (last proposition already possible today)
 
-## In case of Invalid KanaryDeployment, remove pod from Service (medium)
-If a KanaryDeployment is set as invalid, it should not interfer anymore with the service
-
 ## HPA (medium)
 Introduce HAP in the KanaryDeploymentSpecScale
 
