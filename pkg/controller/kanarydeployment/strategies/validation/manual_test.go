@@ -68,7 +68,7 @@ func Test_manualImpl_isDeadlinePeriodDone(t *testing.T) {
 			m := &manualImpl{
 				validationPeriod: tt.fields.validationPeriod,
 			}
-			if got := m.isDeadlinePeriodDone(tt.args.startTime, tt.args.now); got != tt.want {
+			if _, got := m.isDeadlinePeriodDone(tt.args.startTime, tt.args.now); got != tt.want {
 				t.Errorf("manualImpl.isDeadlinePeriodDone() = %v, want %v", got, tt.want)
 			}
 		})

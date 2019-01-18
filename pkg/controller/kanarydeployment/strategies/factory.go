@@ -71,7 +71,6 @@ type strategy struct {
 func (s *strategy) Apply(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (result reconcile.Result, err error) {
 	var newStatus *kanaryv1alpha1.KanaryDeploymentStatus
 	newStatus, result, err = s.process(kclient, reqLogger, kd, dep, canarydep)
-
 	utils.UpdateKanaryDeploymentStatusConditionsFailure(newStatus, metav1.Now(), err)
 	return utils.UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err)
 }
@@ -88,7 +87,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 	// First process cleanup
 	for impl, activated := range s.traffic {
 		if !activated {
-			status, result, err = impl.Cleanup(kclient, reqLogger, kd)
+			status, result, err = impl.Cleanup(kclient, reqLogger, kd, canarydep)
 			if err != nil {
 				return status, result, fmt.Errorf("error during Traffic Cleanup processing, err: %v", err)
 			}

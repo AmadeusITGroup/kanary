@@ -107,6 +107,7 @@ type KanaryDeploymentSpecTrafficMirror struct {
 type KanaryDeploymentSpecValidation struct {
 	// ValidationPeriod
 	ValidationPeriod *metav1.Duration                          `json:"validationPeriod,omitempty"`
+	NoUpdate         bool                                      `json:"noUpdate,omitempty"`
 	Manual           *KanaryDeploymentSpecValidationManual     `json:"manual,omitempty"`
 	LabelWatch       *KanaryDeploymentSpecValidationLabelWatch `json:"labelWatch,omitempty"`
 	PromQL           *KanaryDeploymentSpecValidationPromQL     `json:"promQL,omitempty"`
@@ -215,6 +216,8 @@ const (
 	// ErroredKanaryDeploymentConditionType is added in a kanarydeployment when the canary deployment
 	// process errored.
 	ErroredKanaryDeploymentConditionType KanaryDeploymentConditionType = "Errored"
+	// TrafficServiceKanaryDeploymentConditionType means the KanaryDeployment strategy is activated
+	TrafficKanaryDeploymentConditionType KanaryDeploymentConditionType = "Traffic"
 )
 
 // KanaryDeploymentAnnotationKeyType corresponds to all possible Annotation Keys that can be added/updated by Kanary

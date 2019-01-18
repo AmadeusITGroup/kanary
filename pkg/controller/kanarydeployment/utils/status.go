@@ -18,14 +18,14 @@ import (
 )
 
 // UpdateKanaryDeploymentStatusForFailure used to update the KanaryDeployment.Status if it has changed.
-func UpdateKanaryDeploymentStatusForFailure(kclient client.StatusWriter, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, now metav1.Time, result reconcile.Result, err error) (reconcile.Result, error) {
+func UpdateKanaryDeploymentStatusForFailure(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, now metav1.Time, result reconcile.Result, err error) (reconcile.Result, error) {
 	newStatus := kd.Status.DeepCopy()
 	UpdateKanaryDeploymentStatusConditionsFailure(newStatus, now, err)
 	return UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err)
 }
 
 // UpdateKanaryDeploymentStatus used to update the KanaryDeployment.Status if it has changed.
-func UpdateKanaryDeploymentStatus(kclient client.StatusWriter, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, newStatus *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) (reconcile.Result, error) {
+func UpdateKanaryDeploymentStatus(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, newStatus *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) (reconcile.Result, error) {
 	if !apiequality.Semantic.DeepEqual(&kd.Status, newStatus) {
 		updatedKd := kd.DeepCopy()
 		updatedKd.Status = *newStatus
@@ -74,6 +74,24 @@ func NewKanaryDeploymentStatusCondition(conditionType kanaryv1alpha1.KanaryDeplo
 		Reason:             reason,
 		Message:            message,
 	}
+}
+
+// IsKanaryDeploymentFailed returns true if the KanaryDeployment has failed, else returns false
+func IsKanaryDeploymentFailed(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
+	id := getIndexForConditionType(status, kanaryv1alpha1.FailedKanaryDeploymentConditionType)
+	if id >= 0 && status.Conditions[id].Status == corev1.ConditionTrue {
+		return true
+	}
+	return false
+}
+
+// IsKanaryDeploymentSucceeded returns true if the KanaryDeployment has succeeded, else return false
+func IsKanaryDeploymentSucceeded(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
+	id := getIndexForConditionType(status, kanaryv1alpha1.SucceededKanaryDeploymentConditionType)
+	if id >= 0 && status.Conditions[id].Status == corev1.ConditionTrue {
+		return true
+	}
+	return false
 }
 
 func getIndexForConditionType(status *kanaryv1alpha1.KanaryDeploymentStatus, t kanaryv1alpha1.KanaryDeploymentConditionType) int {

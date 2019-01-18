@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
 // NewStatic returns new scale.Static instance
@@ -26,6 +27,11 @@ type staticImpl struct {
 
 func (s *staticImpl) Scale(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, canaryDep *appsv1beta1.Deployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error) {
 	status := &kd.Status
+	// don't update the canary deployment replicas if the KanaryDeployment has failed
+	if utils.IsKanaryDeploymentFailed(status) {
+		return status, reconcile.Result{}, nil
+	}
+
 	// check if the canary deployment replicas is up to date
 	var specReplicas, canaryReplicas int32
 	if canaryDep.Spec.Replicas != nil {

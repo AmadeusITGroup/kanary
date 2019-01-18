@@ -20,14 +20,7 @@ func NewCanaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, se
 	kanaryServiceName := GetCanaryServiceName(kd)
 
 	labelSelector := map[string]string{}
-	for key, val := range service.Spec.Selector {
-		if overwriteLabel {
-			labelSelector[key] = fmt.Sprintf("%s-%s", val, "kanary")
-		} else {
-			labelSelector[key] = val
-		}
-
-	}
+	labelSelector[kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey] = kd.Name
 	labelSelector[kanaryv1alpha1.KanaryDeploymentActivateLabelKey] = kanaryv1alpha1.KanaryDeploymentLabelValueTrue
 
 	newService := service.DeepCopy()
@@ -65,7 +58,8 @@ func GetCanaryServiceName(kd *kanaryv1alpha1.KanaryDeployment) string {
 }
 
 // NewDeploymentFromKanaryDeploymentTemplate returns a Deployment object
-func NewDeploymentFromKanaryDeploymentTemplate(kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool) (*appsv1beta1.Deployment, error) {
+func NewDeploymentFromKanaryDeploymentTemplate(kdold *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool) (*appsv1beta1.Deployment, error) {
+	kd := kdold.DeepCopy()
 	ls := GetLabelsForKanaryDeploymentd(kd.Name)
 
 	dep := &appsv1beta1.Deployment{
@@ -106,25 +100,12 @@ func NewCanaryDeploymentFromKanaryDeploymentTemplate(kd *kanaryv1alpha1.KanaryDe
 		return nil, err
 	}
 	dep.Name = GetCanaryDeploymentName(kd)
-	if dep.Spec.Template.Labels == nil {
-		dep.Spec.Template.Labels = map[string]string{}
+	// Overwrite the Pods labels and the Deployment spec selector
+	dep.Spec.Template.Labels = map[string]string{
+		kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: kd.Name,
 	}
-	if dep.Spec.Selector.MatchLabels == nil {
-		dep.Spec.Selector.MatchLabels = map[string]string{}
-	}
-
-	if overwriteLabel {
-		for key, value := range dep.Spec.Template.Labels {
-			dep.Spec.Template.Labels[key] = fmt.Sprintf("%s-%s", value, "kanary")
-		}
-
-		for key, value := range dep.Spec.Selector.MatchLabels {
-			dep.Spec.Selector.MatchLabels[key] = fmt.Sprintf("%s-%s", value, "kanary")
-		}
-	}
-
 	dep.Spec.Template.Labels[kanaryv1alpha1.KanaryDeploymentActivateLabelKey] = kanaryv1alpha1.KanaryDeploymentLabelValueTrue
-	dep.Spec.Selector.MatchLabels[kanaryv1alpha1.KanaryDeploymentActivateLabelKey] = kanaryv1alpha1.KanaryDeploymentLabelValueTrue
+	dep.Spec.Selector.MatchLabels = dep.Spec.Template.Labels
 
 	dep.Spec.Replicas = GetCanaryReplicasValue(kd)
 

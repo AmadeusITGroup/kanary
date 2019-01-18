@@ -27,7 +27,6 @@ func NewKanaryDeployment(name, namespace, serviceName string, replicas int32, op
 		if options.StartTime != nil {
 			kd.CreationTimestamp = *options.StartTime
 		}
-
 		if options.Scale != nil {
 			kd.Spec.Scale = *options.Scale
 		}
@@ -36,6 +35,9 @@ func NewKanaryDeployment(name, namespace, serviceName string, replicas int32, op
 		}
 		if options.Validation != nil {
 			kd.Spec.Validation = *options.Validation
+		}
+		if options.Status != nil {
+			kd.Status = *options.Status
 		}
 	}
 
@@ -51,4 +53,5 @@ type NewKanaryDeploymentOptions struct {
 	Scale      *kanaryv1alpha1.KanaryDeploymentSpecScale
 	Traffic    *kanaryv1alpha1.KanaryDeploymentSpecTraffic
 	Validation *kanaryv1alpha1.KanaryDeploymentSpecValidation
+	Status     *kanaryv1alpha1.KanaryDeploymentStatus
 }

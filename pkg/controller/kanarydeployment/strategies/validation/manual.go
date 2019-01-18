@@ -24,6 +24,7 @@ func NewManual(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 		deadlineStatus:         s.Manual.StatusAfterDealine,
 		validationManualStatus: s.Manual.Status,
 		validationPeriod:       s.ValidationPeriod.Duration,
+		dryRun:                 s.NoUpdate,
 	}
 }
 
@@ -31,11 +32,11 @@ type manualImpl struct {
 	deadlineStatus         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadineStatus
 	validationManualStatus kanaryv1alpha1.KanaryDeploymentSpecValidationManualStatus
 	validationPeriod       time.Duration
+	dryRun                 bool
 }
 
 func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
 	status = kd.Status.DeepCopy()
-
 	var needUpdateDeployment bool
 	if m.validationManualStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus {
 		needUpdateDeployment = true
@@ -43,24 +44,26 @@ func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 
 	var deadlineReached bool
 	if canaryDep != nil {
-		deadlineReached = m.isDeadlinePeriodDone(canaryDep.CreationTimestamp.Time, time.Now())
+		var requeueAfter time.Duration
+		requeueAfter, deadlineReached = m.isDeadlinePeriodDone(canaryDep.CreationTimestamp.Time, time.Now())
+		if !deadlineReached {
+			result.RequeueAfter = requeueAfter
+		}
 		if deadlineReached && m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
 			needUpdateDeployment = true
 		}
 	}
 
-	if needUpdateDeployment {
+	if needUpdateDeployment && !m.dryRun {
 		newDep, err := utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
 		if err != nil {
 			reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
-			return status, reconcile.Result{}, err
+			return status, result, err
 		}
-
-		reqLogger.Info("Updating Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
 		err = kclient.Update(context.TODO(), newDep)
 		if err != nil {
-			reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
-			return status, reconcile.Result{}, err
+			reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name, "newDep", *newDep)
+			return status, result, err
 		}
 	}
 
@@ -73,14 +76,13 @@ func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 	} else if deadlineReached && m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
 		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully, dealine activated with 'valid' status")
 	}
-
 	return status, result, err
 }
 
-func (m *manualImpl) isDeadlinePeriodDone(startTime, now time.Time) bool {
+func (m *manualImpl) isDeadlinePeriodDone(startTime, now time.Time) (time.Duration, bool) {
 	if startTime.Add(m.validationPeriod).Before(now) {
-		return true
+		return time.Duration(0), true
 	}
 
-	return false
+	return startTime.Add(m.validationPeriod).Sub(now), false
 }
