@@ -24,62 +24,11 @@ import (
 	utilstest "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/test"
 )
 
-func Test_manualImpl_isDeadlinePeriodDone(t *testing.T) {
-	now := time.Now()
-
-	type fields struct {
-		validationPeriod time.Duration
-	}
-	type args struct {
-		startTime time.Time
-		now       time.Time
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   bool
-	}{
-		{
-			name: "before deadline",
-			fields: fields{
-				validationPeriod: 10 * time.Minute,
-			},
-			args: args{
-				startTime: now.Add(-5 * time.Minute),
-				now:       now,
-			},
-			want: false,
-		},
-		{
-			name: "after deadline",
-			fields: fields{
-				validationPeriod: 10 * time.Minute,
-			},
-			args: args{
-				startTime: now.Add(-15 * time.Minute),
-				now:       now,
-			},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := &manualImpl{
-				validationPeriod: tt.fields.validationPeriod,
-			}
-			if _, got := m.isDeadlinePeriodDone(tt.args.startTime, tt.args.now); got != tt.want {
-				t.Errorf("manualImpl.isDeadlinePeriodDone() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func Test_manualImpl_Validation(t *testing.T) {
 	now := time.Now()
 	creationTime := metav1.Time{Time: now.Add(-20 * time.Minute)}
 	logf.SetLogger(logf.ZapLogger(true))
-	log := logf.Log.WithName("Test_cleanupImpl_Traffic")
+	log := logf.Log.WithName("Test_manualImpl_Validation")
 
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme

@@ -145,7 +145,7 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 			var result reconcile.Result
 			if utils.IsKanaryDeploymentFailed(&kd.Status) {
 				// in this case remove the pod from live traffic service.
-				service := &corev1.Service{}
+				service = &corev1.Service{}
 				err = kclient.Get(context.TODO(), client.ObjectKey{Name: kd.Spec.ServiceName, Namespace: kd.Namespace}, service)
 				if err != nil {
 					return status, true, reconcile.Result{Requeue: true}, err
@@ -222,7 +222,7 @@ func (k *kanaryServiceImpl) updatePodLabels(kclient client.Client, reqLogger log
 		LabelSelector: selector.AsSelector(),
 		Namespace:     kd.Namespace,
 	}
-	kclient.List(context.TODO(), listOptions, pods)
+	err = kclient.List(context.TODO(), listOptions, pods)
 	if err != nil {
 		reqLogger.Error(err, "failed to list Service")
 		return true, reconcile.Result{Requeue: true}, err
@@ -244,7 +244,9 @@ func (k *kanaryServiceImpl) updatePodLabels(kclient client.Client, reqLogger log
 		requeue = true
 
 		err = kclient.Update(context.TODO(), updatePod)
-		errs = append(errs)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	return requeue, reconcile.Result{Requeue: requeue}, utilerrors.NewAggregate(errs)
@@ -262,7 +264,7 @@ func (k *kanaryServiceImpl) desactivateService(kclient client.Client, reqLogger 
 		LabelSelector: selector.AsSelector(),
 		Namespace:     kd.Namespace,
 	}
-	kclient.List(context.TODO(), listOptions, pods)
+	err = kclient.List(context.TODO(), listOptions, pods)
 	if err != nil {
 		reqLogger.Error(err, "failed to list Service")
 		return true, reconcile.Result{Requeue: true}, err
@@ -282,7 +284,9 @@ func (k *kanaryServiceImpl) desactivateService(kclient client.Client, reqLogger 
 		}
 		requeue = true
 		err = kclient.Update(context.TODO(), updatePod)
-		errs = append(errs)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	return requeue, reconcile.Result{Requeue: requeue}, utilerrors.NewAggregate(errs)

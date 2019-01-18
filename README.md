@@ -52,19 +52,23 @@ Kanary allows different mechanisms to validate that a KanaryDeployment is succes
 - `labelWatch`: in this mode, the Kanary-controller will watch the present of label(s) on canary deployment|pod in order to know if the KanayDeployment is valid. If after the `spec.validation.validationPeriod` the controller didn't see the labels present on the pods or deployment, it means the KanaryDeployment is valid.
 - `promQL`: this mode is using prometheus metrics for knowing if the KanaryDeployment is valid or not. The user needs to provide a PromQL query and prometheus server connection information. The query needs to return "true" or "false", and can benefit from some templating value (deployment.name, service,name...)
 
-Then a common field in the validation section is the `spec.validation.validationPeriod`, This is the minimum period of time that the canary deployment needs to run and be considered as valid, before considering the KanaryDeployment as succeed and start the deployment update process.
+Then some common fields in the validation section:
+
+- `spec.validation.validationPeriod`, This is the minimum period of time that the canary deployment needs to run and be considered as valid, before considering the KanaryDeployment as succeed and start the deployment update process.
+- `spec.validation.noUpdate`, by default set to "false", which means that the deployment is updated in case of a success canary deployment validation. If `noUpdate` is set to "true", the deployment is not updated despite the validation success.
 
 ```yaml
 spec:
   # ...
   validation:
     validationPeriod: 15m
+    noUpdate: false
     # ...
 ```
 
 #### Manual
 
-in `manual` validation strategy, you can initiate the configuration with an additional parameter: `spec.validation.manual.statusAfterDeadline`. This parameter will allow the kanary-controller to know if it needs to consider the KanaryDeployment as `valid` or `invalid` after the `validationPeriod`. if this parameter is set to `none` which is the default value, the kanary-controller will not take any decision after the `validationPeriod` and it will wait that you update the `spec.validation.manual.status` to `valid` or `invalid` to take action.
+In `manual` validation strategy, you can initiate the configuration with an additional parameter: `spec.validation.manual.statusAfterDeadline`. This parameter will allow the kanary-controller to know if it needs to consider the KanaryDeployment as `valid` or `invalid` after the `validationPeriod`. if this parameter is set to `none` which is the default value, the kanary-controller will not take any decision after the `validationPeriod` and it will wait that you update the `spec.validation.manual.status` to `valid` or `invalid` to take action.
 
 ```yaml
 spec:
@@ -79,7 +83,32 @@ spec:
 
 #### LabelWatch
 
-// TODO
+The `labelWatch` validation strategy allows to configure some invalidation labels on Kanary pods or deployment. If present, the Kanary controller will consider the `KanaryDeployment` as failed.
+To be successful, the KanaryDeployment need to running during the full `validationPeriod` without any `deploymentInvalidationLabels` or `deploymentInvalidationLabels` labels match.
+
+```yaml
+spec:
+  # ...
+  validation:
+    validationPeriod: 15m
+    labelWatch:
+      deploymentInvalidationLabels:
+        validation: "failed"
+  # ...
+```
+
+another example:
+
+```yaml
+spec:
+  # ...
+  validation:
+    validationPeriod: 15m
+    labelWatch:
+      podInvalidationLabels:
+        monitoring-alert: "high-cpu"
+  # ...
+```
 
 #### PromQL
 
