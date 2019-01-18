@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/comparison"
 )
 
 // NewCanaryServiceForKanaryDeployment returns a Service object
@@ -37,6 +38,15 @@ func NewCanaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, se
 	newService.Spec.Selector = labelSelector
 	if newService.Spec.Type == corev1.ServiceTypeNodePort || newService.Spec.Type == corev1.ServiceTypeLoadBalancer {
 		// this is to remove Port collision
+		if newService.Spec.Type == corev1.ServiceTypeNodePort {
+			for i := range newService.Spec.Ports {
+				newService.Spec.Ports[i].NodePort = 0
+			}
+		}
+		if newService.Spec.Type == corev1.ServiceTypeLoadBalancer {
+			newService.Spec.LoadBalancerSourceRanges = nil
+		}
+
 		newService.Spec.Type = corev1.ServiceTypeClusterIP
 	}
 	newService.Spec.ClusterIP = ""
@@ -76,7 +86,7 @@ func NewDeploymentFromKanaryDeploymentTemplate(kd *kanaryv1alpha1.KanaryDeployme
 		dep.Namespace = kd.Namespace
 	}
 
-	if _, err := SetMD5DeploymentSpecAnnotation(kd, dep); err != nil {
+	if _, err := comparison.SetMD5DeploymentSpecAnnotation(kd, dep); err != nil {
 		return nil, fmt.Errorf("unable to set the md5 annotation, %v", err)
 	}
 
@@ -130,7 +140,7 @@ func UpdateDeploymentWithKanaryDeploymentTemplate(kd *kanaryv1alpha1.KanaryDeplo
 		newDep.Spec = kd.Spec.Template.Spec
 	}
 
-	if _, err := SetMD5DeploymentSpecAnnotation(kd, newDep); err != nil {
+	if _, err := comparison.SetMD5DeploymentSpecAnnotation(kd, newDep); err != nil {
 		return nil, fmt.Errorf("unable to set the md5 annotation, %v", err)
 	}
 
