@@ -1,8 +1,5 @@
 # List of actions to be discuss and/or coded
 
-## Add Dry-run KanaryDeployment validation (simple)
-Allow to run a kanaryDeployment without updating the Deployment in case of success.
-
 ## Validation service/deployment (simple)
 Validate that the selector of the service in the spec is really selecting the pods created by the deploymentTemplate.
 

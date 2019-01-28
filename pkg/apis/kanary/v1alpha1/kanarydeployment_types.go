@@ -145,12 +145,12 @@ const (
 
 // KanaryDeploymentSpecValidationLabelWatch defines the labelWatch validation configuration
 type KanaryDeploymentSpecValidationLabelWatch struct {
-	// PodSelector defines labels that should be present on the canary pods in order to invalidate
+	// PodInvalidationLabels defines labels that should be present on the canary pods in order to invalidate
 	// the canary deployment
-	PodSelector *metav1.LabelSelector `json:"podSelector,omitempty"`
-	// DeploymentSelector defines labels that should be present on the canary deployment in order to invalidate
+	PodInvalidationLabels *metav1.LabelSelector `json:"podInvalidationLabels,omitempty"`
+	// DeploymentInvalidationLabels defines labels that should be present on the canary deployment in order to invalidate
 	// the canary deployment
-	DeploymentSelector *metav1.LabelSelector `json:"deploymentSelector,omitempty"`
+	DeploymentInvalidationLabels *metav1.LabelSelector `json:"deploymentInvalidationLabels,omitempty"`
 }
 
 // KanaryDeploymentSpecValidationPromQL defines the promQL validation configuration
@@ -216,7 +216,7 @@ const (
 	// ErroredKanaryDeploymentConditionType is added in a kanarydeployment when the canary deployment
 	// process errored.
 	ErroredKanaryDeploymentConditionType KanaryDeploymentConditionType = "Errored"
-	// TrafficServiceKanaryDeploymentConditionType means the KanaryDeployment strategy is activated
+	// TrafficServiceKanaryDeploymentConditionType means the KanaryDeployment Traffic strategy is activated
 	TrafficKanaryDeploymentConditionType KanaryDeploymentConditionType = "Traffic"
 )
 

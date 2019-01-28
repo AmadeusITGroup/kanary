@@ -16,6 +16,7 @@ import (
 type NewDeploymentOptions struct {
 	CreationTime *metav1.Time
 	Selector     map[string]string
+	Labels       map[string]string
 }
 
 // NewDeployment returns new Deployment instance for testing purpose
@@ -45,6 +46,9 @@ func NewDeployment(name, namespace string, replicas int32, options *NewDeploymen
 			newDep.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: options.Selector,
 			}
+		}
+		if options.Labels != nil {
+			newDep.Labels = options.Labels
 		}
 	}
 

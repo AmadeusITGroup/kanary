@@ -60,6 +60,7 @@ func TestKanary(t *testing.T) {
 		t.Run("Init-Kanary", InitKanaryDeploymentInstance)
 		t.Run("Manual-Validation", ManualValidationAfterDeadline)
 		t.Run("Manual-Invalidation", ManualInvalidationAfterDeadline)
+		t.Run("DepLabelWatch-Invalid", InvalidationWithDeploymentLabels)
 	})
 }
 
@@ -304,8 +305,121 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 
 }
 
-func updateDeploymentFunc(f *framework.Framework, name, namespace string, updateFunc func(kd *kanaryv1alpha1.KanaryDeployment)) error {
-	kd := &kanaryv1alpha1.KanaryDeployment{}
+func InvalidationWithDeploymentLabels(t *testing.T) {
+	t.Parallel()
+	f, ctx, err := InitKanaryOperator(t)
+	defer ctx.Cleanup()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		t.Fatal(fmt.Errorf("could not get namespace: %v", err))
+	}
+	name := RandStringRunes(6)
+	replicas := int32(3)
+	deploymentName := name
+	serviceName := name
+	canaryName := name + "-kanary"
+
+	newService := newService(namespace, serviceName, map[string]string{"app": name})
+	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newDeployment := newDeployment(namespace, name, "nginx", "1.15.4", replicas)
+	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, deploymentName, int(replicas), retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mapFailed := map[string]string{"failed": "true"}
+
+	invalidationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
+		ValidationPeriod: &metav1.Duration{Duration: 4 * time.Minute},
+		LabelWatch: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
+			DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
+		},
+	}
+	trafficConfig := &kanaryv1alpha1.KanaryDeploymentSpecTraffic{
+		Source: kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource,
+	}
+	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "nginx", "latest", replicas, nil, trafficConfig, invalidationConfig)
+	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// canary deployment is replicas is setted to 1.
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, canaryName, 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// wait that the canary pod is behind the service
+	checkEndpoints := func(eps *corev1.Endpoints, wantedPod int) (bool, error) {
+		nbPod := 0
+		for _, sub := range eps.Subsets {
+			nbPod += len(sub.Addresses)
+		}
+		if wantedPod != nbPod {
+			t.Logf("checkEndpoints %d-%d", wantedPod, nbPod)
+			return false, nil
+		}
+		return true, nil
+	}
+
+	check4Endpoints := func(eps *corev1.Endpoints) (bool, error) {
+		return checkEndpoints(eps, 4)
+	}
+
+	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check4Endpoints, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Update deployement kanary with failed label")
+	addLabelsFunc := func(d *appsv1.Deployment) {
+		if d.Labels == nil {
+			d.Labels = map[string]string{}
+		}
+		for key, val := range mapFailed {
+			d.Labels[key] = val
+		}
+	}
+	err = updateDeploymentFunc(f, canaryName, namespace, addLabelsFunc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Start checking KanaryDeployment status")
+	checkInvalidStatus := func(kd *kanaryv1alpha1.KanaryDeployment) (bool, error) {
+		if utilsctrl.IsKanaryDeploymentFailed(&kd.Status) {
+			return true, nil
+		}
+		return false, nil
+	}
+	utils.WaitForFuncOnKanaryDeployment(t, f.Client, namespace, name, checkInvalidStatus, retryInterval, 2*timeout)
+
+	// check that pods are not anymore behind the service
+	check3Endpoints := func(eps *corev1.Endpoints) (bool, error) {
+		return checkEndpoints(eps, 3)
+	}
+	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check3Endpoints, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+}
+
+func updateDeploymentFunc(f *framework.Framework, name, namespace string, updateFunc func(kd *appsv1.Deployment)) error {
+	kd := &appsv1.Deployment{}
 	err := f.Client.Get(goctx.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, kd)
 	if err != nil {
 		return err

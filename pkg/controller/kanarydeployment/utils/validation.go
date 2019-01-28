@@ -21,9 +21,6 @@ func validateKanaryDeploymentSpecScale(s *v1alpha1.KanaryDeploymentSpecScale) []
 	if s.Static == nil {
 		errs = append(errs, fmt.Errorf("spec.scale.static not defined: %v", s))
 	}
-	if s.Static != nil {
-		// For the moment nothing todo
-	}
 	return errs
 }
 

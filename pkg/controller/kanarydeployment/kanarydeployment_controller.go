@@ -169,7 +169,7 @@ func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger log
 		result.Requeue = true
 		result, err = utils.UpdateKanaryDeploymentStatus(r.client, reqLogger, kd, newStatus, result, err)
 		// Deployment created successfully - return and requeue
-		return deployment, true, result, nil
+		return deployment, true, result, err
 	} else if err != nil {
 		reqLogger.Error(err, "failed to get Deployment")
 		return deployment, true, reconcile.Result{}, err
@@ -212,7 +212,7 @@ func (r *ReconcileKanaryDeployment) manageDeploymentCreationFunc(reqLogger logr.
 	return deployment, false, reconcile.Result{}, err
 }
 
-func updateKanaryDeploymentStatus(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, now metav1.Time, result reconcile.Result, err error) (reconcile.Result, error) {
+func updateKanaryDeploymentStatus(kclient client.StatusWriter, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, now metav1.Time, result reconcile.Result, err error) (reconcile.Result, error) {
 	newStatus := kd.Status.DeepCopy()
 	utils.UpdateKanaryDeploymentStatusConditionsFailure(newStatus, now, err)
 	return utils.UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err)
