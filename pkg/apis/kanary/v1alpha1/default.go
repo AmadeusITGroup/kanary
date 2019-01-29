@@ -4,7 +4,15 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/api/autoscaling/v2beta1"
+	corev1 "k8s.io/api/core/v1"
 )
+
+// DefaultCPUUtilization is the default value for CPU utilization, provided no other
+// metrics are present.  This is here because it's used by both the v2beta1 defaulting
+// logic, and the pseudo-defaulting done in v1 conversion.
+const DefaultCPUUtilization = 80
 
 // IsDefaultedKanaryDeployment used to know if a KanaryDeployment is already defaulted
 // returns true if yes, else no
@@ -25,12 +33,30 @@ func IsDefaultedKanaryDeployment(kd *KanaryDeployment) bool {
 // IsDefaultedKanaryDeploymentSpecScale used to know if a KanaryDeploymentSpecScale is already defaulted
 // returns true if yes, else no
 func IsDefaultedKanaryDeploymentSpecScale(scale *KanaryDeploymentSpecScale) bool {
-	if scale.Static == nil {
+	if scale.Static == nil && scale.HPA == nil {
 		return false
 	}
 
 	if scale.Static != nil {
 		if scale.Static.Replicas == nil {
+			return false
+		}
+	}
+
+	if scale.HPA != nil {
+		if scale.HPA.MinReplicas == nil {
+			return false
+		}
+
+		if scale.HPA.MaxReplicas == 0 {
+			return false
+		}
+
+		if scale.HPA.Metrics == nil {
+			return false
+		}
+
+		if len(scale.HPA.Metrics) == 0 {
 			return false
 		}
 	}
@@ -92,6 +118,30 @@ func defaultKanaryDeploymentSpecScale(s *KanaryDeploymentSpecScale) {
 	if s.Static == nil {
 		s.Static = &KanaryDeploymentSpecScaleStatic{}
 		defaultKanaryDeploymentSpecScaleStatic(s.Static)
+	}
+	if s.HPA != nil {
+		defaultKanaryDeploymentSpecScaleHPA(s.HPA)
+	}
+}
+
+// defaultKanaryDeploymentSpecScaleHPA used to default HorizontalPodAutoscaler spec
+func defaultKanaryDeploymentSpecScaleHPA(s *HorizontalPodAutoscalerSpec) {
+	if s.MinReplicas == nil {
+		s.MinReplicas = NewInt32(1)
+	}
+	if s.MaxReplicas == 0 {
+		s.MaxReplicas = int32(10)
+	}
+	if s.Metrics == nil {
+		s.Metrics = []v2beta1.MetricSpec{
+			{
+				Type: v2beta1.ResourceMetricSourceType,
+				Resource: &v2beta1.ResourceMetricSource{
+					Name:                     corev1.ResourceCPU,
+					TargetAverageUtilization: NewInt32(DefaultCPUUtilization),
+				},
+			},
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"k8s.io/api/apps/v1beta1"
+	"k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,6 +58,7 @@ type KanaryDeploymentSpec struct {
 // KanaryDeploymentSpecScale defines the scale configuration for the canary deployment
 type KanaryDeploymentSpecScale struct {
 	Static *KanaryDeploymentSpecScaleStatic `json:"static,omitempty"`
+	HPA    *HorizontalPodAutoscalerSpec     `json:"hpa,omitempty"`
 }
 
 // KanaryDeploymentSpecScaleStatic defines the static scale configuration for the canary deployment
@@ -65,6 +67,26 @@ type KanaryDeploymentSpecScaleStatic struct {
 	// zero and not specified. Defaults to 1.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
+}
+
+// HorizontalPodAutoscalerSpec describes the desired functionality of the HorizontalPodAutoscaler.
+type HorizontalPodAutoscalerSpec struct {
+	// minReplicas is the lower limit for the number of replicas to which the autoscaler can scale down.
+	// It defaults to 1 pod.
+	// +optional
+	MinReplicas *int32 `json:"minReplicas,omitempty" protobuf:"varint,2,opt,name=minReplicas"`
+	// maxReplicas is the upper limit for the number of replicas to which the autoscaler can scale up.
+	// It cannot be less that minReplicas.
+	MaxReplicas int32 `json:"maxReplicas" protobuf:"varint,3,opt,name=maxReplicas"`
+	// metrics contains the specifications for which to use to calculate the
+	// desired replica count (the maximum replica count across all metrics will
+	// be used).  The desired replica count is calculated multiplying the
+	// ratio between the target value and the current value by the current
+	// number of pods.  Ergo, metrics used must decrease as the pod count is
+	// increased, and vice-versa.  See the individual metric source types for
+	// more information about how each type of metric must respond.
+	// +optional
+	Metrics []v2beta1.MetricSpec `json:"metrics,omitempty" protobuf:"bytes,4,rep,name=metrics"`
 }
 
 // KanaryDeploymentSpecTraffic defines the traffic configuration for the canary deployment

@@ -15,7 +15,11 @@ The `KanaryDeployment.Spec` is split in 4 different part:
 
 ### Scale configuration
 
-Currently, only static scale configuration is available, which means you need to define the `replicas` for the canary deployment.
+Currently, two scale configurations are available: `static` and `hpa`.
+
+#### Static scale
+
+With static configuraiton you need to set manualy the canary deployment replica factor.
 
 ```yaml
 spec:
@@ -23,6 +27,19 @@ spec:
   scale:
     static:
       replicas: 1
+  #...
+```
+
+#### HPA (HorizontalPodAutoscaler) scale
+
+With `hpa` scale configuration, a HorizontalPodAutoscaler resource will be created attach to the canary deployment. Parameters are identic with the  `HorizontalPodAutoscaler.spec` with the exception of `HorizontalPodAutoscaler.spec.scaleTargetRef` what it set by the canary-controller.
+
+```yaml
+spec:
+  #...
+  scale:
+    hpa:
+      maxReplicas: 5
   #...
 ```
 

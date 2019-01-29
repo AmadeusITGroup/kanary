@@ -26,9 +26,16 @@ type Interface interface {
 
 // NewStrategy return new instance of the strategy
 func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
-	var scaleImpl scale.Interface
-	if spec.Scale.Static != nil {
-		scaleImpl = scale.NewStatic(spec.Scale.Static)
+	scaleStatic := scale.NewStatic(spec.Scale.Static)
+	scaleHPA := scale.NewHPA(spec.Scale.HPA)
+	scaleImpls := map[scale.Interface]bool{
+		scaleStatic: false,
+		scaleHPA:    false,
+	}
+	if spec.Scale.HPA != nil {
+		scaleImpls[scaleHPA] = true
+	} else {
+		scaleImpls[scaleStatic] = true
 	}
 
 	trafficKanaryService := traffic.NewKanaryService(&spec.Traffic)
@@ -56,14 +63,14 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 	}*/
 
 	return &strategy{
-		scale:      scaleImpl,
+		scale:      scaleImpls,
 		traffic:    trafficImpls,
 		validation: validationImpl,
 	}, nil
 }
 
 type strategy struct {
-	scale      scale.Interface
+	scale      map[scale.Interface]bool
 	traffic    map[traffic.Interface]bool
 	validation validation.Interface
 }
@@ -76,12 +83,30 @@ func (s *strategy) Apply(kclient client.Client, reqLogger logr.Logger, kd *kanar
 }
 
 func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
-	status, result, err = s.scale.Scale(kclient, reqLogger, kd, canarydep)
-	if err != nil {
-		return status, result, fmt.Errorf("error during Scale processing, err: %v", err)
+	// First cleanup if needed
+	for impl, activated := range s.scale {
+		if !activated {
+			status, result, err = impl.Clear(kclient, reqLogger, kd, canarydep)
+			if err != nil {
+				return status, result, fmt.Errorf("error during Clean processing, err: %v", err)
+			}
+			if needReturn(&result) {
+				return status, result, err
+			}
+		}
 	}
-	if needReturn(&result) {
-		return status, result, err
+
+	// then scale if need
+	for impl, activated := range s.scale {
+		if activated {
+			status, result, err = impl.Scale(kclient, reqLogger, kd, canarydep)
+			if err != nil {
+				return status, result, fmt.Errorf("error during Scale processing, err: %v", err)
+			}
+			if needReturn(&result) {
+				return status, result, err
+			}
+		}
 	}
 
 	// First process cleanup
