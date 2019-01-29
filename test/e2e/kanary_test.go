@@ -8,6 +8,7 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1beta1"
+	v2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,6 +62,7 @@ func TestKanary(t *testing.T) {
 		t.Run("Manual-Validation", ManualValidationAfterDeadline)
 		t.Run("Manual-Invalidation", ManualInvalidationAfterDeadline)
 		t.Run("DepLabelWatch-Invalid", InvalidationWithDeploymentLabels)
+		t.Run("HPAcreation", HPAcreation)
 	})
 }
 
@@ -416,6 +418,73 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 
+}
+
+func HPAcreation(t *testing.T) {
+	t.Parallel()
+	f, ctx, err := InitKanaryOperator(t)
+	defer ctx.Cleanup()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		t.Fatal(fmt.Errorf("could not get namespace: %v", err))
+	}
+	name := RandStringRunes(6)
+	replicas := int32(3)
+	deploymentName := name
+	serviceName := name
+	canaryName := name + "-kanary"
+
+	newService := newService(namespace, serviceName, map[string]string{"app": name})
+	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newDeployment := newDeployment(namespace, name, "nginx", "1.15.4", replicas)
+	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, deploymentName, int(replicas), retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Init KanaryDeployment with defaulted Strategy (desactiviated)
+	scaleSpec := &kanaryv1alpha1.KanaryDeploymentSpecScale{
+		HPA: &kanaryv1alpha1.HorizontalPodAutoscalerSpec{
+			MinReplicas: kanaryv1alpha1.NewInt32(1),
+			MaxReplicas: int32(3),
+		},
+	}
+
+	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "nginx", "latest", replicas, scaleSpec, nil, nil)
+	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	HPAValidationFunc := func(hpa *v2beta1.HorizontalPodAutoscaler) (bool, error) {
+		if hpa.Status.CurrentReplicas != int32(1) {
+			return false, nil
+		}
+		return true, nil
+	}
+	err = utils.WaitForFuncOnHPA(t, f.KubeClient, namespace, canaryName, HPAValidationFunc, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// canary deployment is replicas is setted to 0 in deactivated mode.
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, canaryName, 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func updateDeploymentFunc(f *framework.Framework, name, namespace string, updateFunc func(kd *appsv1.Deployment)) error {

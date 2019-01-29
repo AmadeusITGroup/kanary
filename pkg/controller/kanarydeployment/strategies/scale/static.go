@@ -52,6 +52,11 @@ func (s *staticImpl) Scale(kclient client.Client, reqLogger logr.Logger, kd *kan
 	return status, reconcile.Result{}, nil
 }
 
+func (s *staticImpl) Clear(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, canaryDep *appsv1beta1.Deployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error) {
+	status := &kd.Status
+	return status, reconcile.Result{}, nil
+}
+
 func updateDeploymentReplicas(kclient client.StatusWriter, reqLogger logr.Logger, dep *appsv1beta1.Deployment, replicas int32) (reconcile.Result, error) {
 	updateDep := dep.DeepCopy()
 	updateDep.Spec.Replicas = &replicas

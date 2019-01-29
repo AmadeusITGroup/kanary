@@ -6,6 +6,7 @@ import (
 	"time"
 
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	"k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -72,6 +73,23 @@ func WaitForFuncOnKanaryDeployment(t *testing.T, client framework.FrameworkClien
 
 		ok, err := f(kanaryDeployment)
 		t.Logf("Waiting for condition function to be true ok for %s kanaryDeployment (%t/%v)\n", name, ok, err)
+		return ok, err
+	})
+}
+
+func WaitForFuncOnHPA(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, f func(hpa *v2beta1.HorizontalPodAutoscaler) (bool, error), retryInterval, timeout time.Duration) error {
+	return wait.Poll(retryInterval, timeout, func() (bool, error) {
+		hpa, err := kubeclient.AutoscalingV2beta1().HorizontalPodAutoscalers(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Logf("Waiting for availability of %s HorizontalPodAutoscaler\n", name)
+				return false, nil
+			}
+			return false, err
+		}
+
+		ok, err := f(hpa)
+		t.Logf("Waiting for condition function to be true ok for %s HorizontalPodAutoscaler (%t/%v)\n", name, ok, err)
 		return ok, err
 	})
 }
