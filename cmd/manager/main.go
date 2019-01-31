@@ -7,8 +7,6 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/amadeusitgroup/kanary/pkg/apis"
-	"github.com/amadeusitgroup/kanary/pkg/controller"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
@@ -18,6 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+
+	"github.com/amadeusitgroup/kanary/pkg/apis"
+	"github.com/amadeusitgroup/kanary/pkg/controller"
 )
 
 var log = logf.Log.WithName("cmd")

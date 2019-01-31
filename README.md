@@ -169,3 +169,19 @@ When you consider the canary deployment enough tested you can update the `spec.v
 - If you have chosen `invalid`. the KanaryDeployment status will be set as `Failed`, no additional action will be possible. Also, the canary pods will be removed from the "production" service.
 
 Finally when you delete the KanaryDeployment instance, all the other resources created linked to it, will be also deleted.
+
+## Kubectl kanary plugin
+
+```shell
+$ make build-plugin
+$ PATH="$(pwd):$PATH"
+# then you can use the plugin
+$ kubectl kanary --help
+Usage:
+  kubectl kanary [command]
+
+Available Commands:
+  generate    generate a KanaryDeployment artifact from a Deployment
+  get         get kanary deployment(s)
+  help        Help about any command
+```

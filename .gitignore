@@ -75,8 +75,11 @@ tags
 .vscode/*
 .history
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
-
+.DS_Store
 # project specific
 /.cover
 /deploy/test/
 /operator
+/kubectl-kanary
+/plugin/output
+/plugin/kubectl-kanary_v*.tar.gz

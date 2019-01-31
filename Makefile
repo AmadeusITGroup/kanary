@@ -1,4 +1,5 @@
 ARTIFACT=operator
+ARTIFACT_PLUGIN=kubectl-kanary
 
 # 0.0 shouldn't clobber any released builds
 TAG= latest
@@ -12,6 +13,11 @@ build: ${ARTIFACT}
 
 ${ARTIFACT}: ${SOURCES}
 	CGO_ENABLED=0 go build -i -installsuffix cgo -ldflags '-w' -o ${ARTIFACT} ./cmd/manager/main.go
+
+build-plugin: ${ARTIFACT_PLUGIN}
+
+${ARTIFACT_PLUGIN}: ${SOURCES}
+	CGO_ENABLED=0 go build -i -installsuffix cgo -ldflags '-w' -o ${ARTIFACT_PLUGIN} ./cmd/kubectl-kanary/main.go
 
 container:
 	operator-sdk build $(PREFIX):$(TAG)
