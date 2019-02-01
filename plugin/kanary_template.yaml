@@ -1,0 +1,35 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: kanary            # plugin name must match your manifest file name (e.g. foo.yaml)
+spec:
+  version: "v0.0.1"       # optional, only for documentation purposes
+  platforms:
+  # specify installation script for linux and darwin (macOS)
+  - selector:             # a regular Kubernetes selector
+      matchExpressions:
+      - {key: os, operator: In, values: [linux]}
+    # url for downloading the package archive:
+    url: https://github.com/amadeusitgroup/kanary/releases/kubectl-kanary_vVERSION.zip
+    # sha256sum of the file downloaded above:
+    sha256: "TAR_SHA256"
+    files:                     # copy the used files out of the zip archive
+    - from: "bin/linux/kubectl-kanary" # path to the files extracted from archive
+      to: "."               # '.' refers to the root of plugin install directory
+    bin: "./kubectl-kanary"  # path to the plugin executable after copying files above
+  - selector:             # a regular Kubernetes selector
+      matchExpressions:
+      - {key: os, operator: In, values: [darwin]}
+    # url for downloading the package archive:
+    url: https://github.com/amadeusitgroup/kanary/releases/kubectl-kanary_vVERSION.zip
+    # sha256sum of the file downloaded above:
+    sha256: "TAR_SHA256"
+    files:                     # copy the used files out of the zip archive
+    - from: "bin/darwin/kubectl-kanary" # path to the files extracted from archive
+      to: "."               # '.' refers to the root of plugin install directory
+    bin: "./kubectl-kanary"  # path to the plugin executable after copying files above
+  shortDescription: kubectl plugin for kanary (canary deployment solution).
+  description: |
+    This plugin provides helpers to user the canary deployment solution Kanary (http://github.com/amadeusitgroup/kanary)
+    It helps to visualize KanaryDeployment resources information, and generates
+    the corresponding artifact from a kubernetes Deployment.

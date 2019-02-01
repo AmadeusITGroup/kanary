@@ -52,3 +52,11 @@ required = [
   [[prune.project]]
     name = "k8s.io/code-generator"
     non-go = false
+
+[[constraint]]
+  branch = "master"
+  name = "k8s.io/cli-runtime"
+
+[[constraint]]
+  name = "github.com/olekukonko/tablewriter"
+  version = "0.0.1"
