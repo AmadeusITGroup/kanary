@@ -179,7 +179,7 @@ func getValidation(kd *v1alpha1.KanaryDeployment) string {
 }
 func getStatus(kd *v1alpha1.KanaryDeployment) string {
 	if utils.IsKanaryDeploymentSucceeded(&kd.Status) {
-		return "Successed"
+		return "Succeeded"
 	} else if utils.IsKanaryDeploymentFailed(&kd.Status) {
 		return "Failed"
 	}
@@ -187,11 +187,14 @@ func getStatus(kd *v1alpha1.KanaryDeployment) string {
 }
 
 func getDuration(kd *v1alpha1.KanaryDeployment) string {
-	duration := "unknow"
-	if kd.Spec.Validation.ValidationPeriod != nil {
-		duration = kd.Spec.Validation.ValidationPeriod.Duration.String()
+	duration := time.Duration(0)
+	if kd.Spec.Validation.InitialDelay != nil {
+		duration += kd.Spec.Validation.InitialDelay.Duration
 	}
-	since := time.Now().Sub(kd.ObjectMeta.CreationTimestamp.Time)
+	if kd.Spec.Validation.ValidationPeriod != nil {
+		duration += kd.Spec.Validation.ValidationPeriod.Duration
+	}
+	since := time.Since(kd.ObjectMeta.CreationTimestamp.Time)
 	return fmt.Sprintf("%s/%s", since, duration)
 }
 

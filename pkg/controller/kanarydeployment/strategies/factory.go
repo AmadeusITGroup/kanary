@@ -135,10 +135,11 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 
 		}
 	}
-
-	status, result, err = s.validation.Validation(kclient, reqLogger, kd, dep, canarydep)
-	if err != nil {
-		return status, result, fmt.Errorf("error during Validation processing, err: %v", err)
+	if validation.IsValidationDelayPeriodDone(kd) {
+		status, result, err = s.validation.Validation(kclient, reqLogger, kd, dep, canarydep)
+		if err != nil {
+			return status, result, fmt.Errorf("error during Validation processing, err: %v", err)
+		}
 	}
 	return status, result, err
 }

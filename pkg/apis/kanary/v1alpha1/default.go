@@ -84,6 +84,10 @@ func IsDefaultedKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation
 		return false
 	}
 
+	if v.InitialDelay == nil {
+		return false
+	}
+
 	if v.Manual == nil && v.LabelWatch == nil && v.PromQL == nil {
 		return false
 	}
@@ -115,13 +119,16 @@ func defaultKanaryDeploymentSpec(spec *KanaryDeploymentSpec) {
 }
 
 func defaultKanaryDeploymentSpecScale(s *KanaryDeploymentSpecScale) {
-	if s.Static == nil {
+	if s.Static == nil && s.HPA == nil {
 		s.Static = &KanaryDeploymentSpecScaleStatic{}
+	}
+	if s.Static != nil {
 		defaultKanaryDeploymentSpecScaleStatic(s.Static)
 	}
 	if s.HPA != nil {
 		defaultKanaryDeploymentSpecScaleHPA(s.HPA)
 	}
+
 }
 
 // defaultKanaryDeploymentSpecScaleHPA used to default HorizontalPodAutoscaler spec
@@ -173,6 +180,11 @@ func defaultKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation) {
 	if v.ValidationPeriod == nil {
 		v.ValidationPeriod = &metav1.Duration{
 			Duration: 15 * time.Minute,
+		}
+	}
+	if v.InitialDelay == nil {
+		v.InitialDelay = &metav1.Duration{
+			Duration: 0 * time.Minute,
 		}
 	}
 	if v.Manual == nil && v.LabelWatch == nil && v.PromQL == nil {

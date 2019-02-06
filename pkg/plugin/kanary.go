@@ -3,26 +3,13 @@ package plugin
 import (
 	"github.com/spf13/cobra"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-)
-
-var (
-	kanaryExample = ``
 )
 
 // KanaryOptions provides information required to manage Kanary
 type KanaryOptions struct {
 	configFlags *genericclioptions.ConfigFlags
-	args        []string
-
-	client client.Client
-
 	genericclioptions.IOStreams
-
-	userNamespace            string
-	userKanaryDeploymentName string
 }
 
 // NewKanaryOptions provides an instance of KanaryOptions with default values

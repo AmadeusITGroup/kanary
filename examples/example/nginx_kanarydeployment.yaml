@@ -9,7 +9,6 @@ spec:
   deploymentName: nginx-dep
   scale:
     static:
-      activate: true
       replicas: 1
   traffic:
     source: both
