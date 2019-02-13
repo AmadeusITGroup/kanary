@@ -7,9 +7,6 @@ Validate that the selector of the service in the spec is really selecting the po
 A pod can be addressed by multiple service.
 Should we propose to list the servicename, or list the trafficSpec, or just propose to create a different KanaryDeployment for each service? (last proposition already possible today)
 
-## HPA (medium)
-Introduce HAP in the KanaryDeploymentSpecScale
-
 ## SourceFilter based on istio (complex)
 Pilot Source and traffic split using istio from the TrafficSpec (not only mirror)
 

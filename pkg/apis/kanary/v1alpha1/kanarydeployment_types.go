@@ -127,12 +127,15 @@ type KanaryDeploymentSpecTrafficMirror struct {
 
 // KanaryDeploymentSpecValidation defines the validation configuration for the canary deployment
 type KanaryDeploymentSpecValidation struct {
-	// ValidationPeriod
-	ValidationPeriod *metav1.Duration                          `json:"validationPeriod,omitempty"`
-	NoUpdate         bool                                      `json:"noUpdate,omitempty"`
-	Manual           *KanaryDeploymentSpecValidationManual     `json:"manual,omitempty"`
-	LabelWatch       *KanaryDeploymentSpecValidationLabelWatch `json:"labelWatch,omitempty"`
-	PromQL           *KanaryDeploymentSpecValidationPromQL     `json:"promQL,omitempty"`
+	// InitialDelay duration after the KanaryDeployment has started before validation checks is started.
+	InitialDelay *metav1.Duration `json:"initialDelay,omitempty"`
+	// ValidationPeriod validation checks duration.
+	ValidationPeriod *metav1.Duration `json:"validationPeriod,omitempty"`
+	// NoUpdate if set to true, the Deployment will no be updated after a succeed validation period.
+	NoUpdate   bool                                      `json:"noUpdate,omitempty"`
+	Manual     *KanaryDeploymentSpecValidationManual     `json:"manual,omitempty"`
+	LabelWatch *KanaryDeploymentSpecValidationLabelWatch `json:"labelWatch,omitempty"`
+	PromQL     *KanaryDeploymentSpecValidationPromQL     `json:"promQL,omitempty"`
 }
 
 // KanaryDeploymentSpecValidationManual defines the manual validation configuration

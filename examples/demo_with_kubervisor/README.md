@@ -37,7 +37,7 @@ then deploy the kanary controller
 ```shell
 cd $KANARY_PATH
 make TAG=stable container
-helm -n kanary chart/kanary
+helm install --wait -n kanary chart/kanary
 make build-plugin
 export PATH="$(pwd):$PATH"
 ```
@@ -61,16 +61,16 @@ export PATH="$(pwd):$PATH"
 open http://grafana.demo.mk
 
 # create the KubervisorService (pause strategy)
-kubectl create -f ./$KUBERVISOR_PATH/examples/demo/scripts/pricer-kubervisorservice_3.yaml
+kubectl create -f $KUBERVISOR_PATH/examples/demo/scripts/pricer-kubervisorservice_3.yaml
 
 # check the dashboard to see that the Kubervisor manage properly the pricer-1a deployment.
 
 # generate now the KanaryDeployment (dry-run to see the spec)
-kubectl kanary generate prod-pricer-1a -o yaml --validation-labelwatch-pod "kubervisor/traffic=pause" --validation-period 3m
+kubectl kanary generate prod-pricer-1a --service pricer-1a -o yaml --validation-labelwatch-pod "kubervisor/traffic=pause" --validation-period 3m --traffic both
 
 
 # then create the KanaryDeployment resource
-kubectl kanary generate prod-pricer-1a -o yaml --validation-labelwatch-pod "kubervisor/traffic=pause" --validation-period 3m > kanaryDeployment_1.yaml
+kubectl kanary generate prod-pricer-1a --service pricer-1a -o yaml --validation-labelwatch-pod "kubervisor/traffic=pause" --validation-period 3m --traffic both > kanaryDeployment_1.yaml
 
 # edit the Deployment template (change --km-price=1 to --km-price=0)
 code kanaryDeployment_1.yaml

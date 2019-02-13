@@ -38,6 +38,9 @@ func TestIsDefaultedKanaryDeployment(t *testing.T) {
 						ValidationPeriod: &metav1.Duration{
 							Duration: 15 * time.Minute,
 						},
+						InitialDelay: &metav1.Duration{
+							Duration: 5 * time.Minute,
+						},
 						Manual: &KanaryDeploymentSpecValidationManual{
 							StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
 						},
@@ -82,6 +85,9 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 						ValidationPeriod: &metav1.Duration{
 							Duration: 15 * time.Minute,
 						},
+						InitialDelay: &metav1.Duration{
+							Duration: 0 * time.Minute,
+						},
 						Manual: &KanaryDeploymentSpecValidationManual{
 							StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
 						},
@@ -106,6 +112,9 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 						ValidationPeriod: &metav1.Duration{
 							Duration: 30 * time.Minute,
 						},
+						InitialDelay: &metav1.Duration{
+							Duration: 5 * time.Minute,
+						},
 						PromQL: &KanaryDeploymentSpecValidationPromQL{
 							ServerURL: "prometheus",
 							Query:     "foo",
@@ -126,6 +135,9 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 					Validation: KanaryDeploymentSpecValidation{
 						ValidationPeriod: &metav1.Duration{
 							Duration: 30 * time.Minute,
+						},
+						InitialDelay: &metav1.Duration{
+							Duration: 5 * time.Minute,
 						},
 						PromQL: &KanaryDeploymentSpecValidationPromQL{
 							ServerURL: "prometheus",

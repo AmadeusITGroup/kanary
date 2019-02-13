@@ -227,7 +227,9 @@ func (o *generateOptions) Run() error {
 
 	switch o.userScale {
 	case "static":
-		newKanaryDeployment.Spec.Scale.Static = &v1alpha1.KanaryDeploymentSpecScaleStatic{}
+		newKanaryDeployment.Spec.Scale.Static = &v1alpha1.KanaryDeploymentSpecScaleStatic{
+			Replicas: v1alpha1.NewInt32(1),
+		}
 	case "hpa":
 		newKanaryDeployment.Spec.Scale.HPA = &v1alpha1.HorizontalPodAutoscalerSpec{}
 	default:
@@ -254,14 +256,16 @@ func (o *generateOptions) Run() error {
 	} else if o.userValidationLabelWatchPod != "" || o.userValidationLabelWatchDeployment != "" {
 		newKanaryDeployment.Spec.Validation.LabelWatch = &v1alpha1.KanaryDeploymentSpecValidationLabelWatch{}
 		if o.userValidationLabelWatchPod != "" {
-			selector, err := metav1.ParseToLabelSelector(o.userValidationLabelWatchPod)
+			var selector *metav1.LabelSelector
+			selector, err = metav1.ParseToLabelSelector(o.userValidationLabelWatchPod)
 			if err != nil {
 				return fmt.Errorf("unable to parse %s=%s, err:%v", argValidationLabelWatchPod, o.userValidationLabelWatchPod, err)
 			}
 			newKanaryDeployment.Spec.Validation.LabelWatch.PodInvalidationLabels = selector
 		}
 		if o.userValidationLabelWatchDeployment != "" {
-			selector, err := metav1.ParseToLabelSelector(o.userValidationLabelWatchDeployment)
+			var selector *metav1.LabelSelector
+			selector, err = metav1.ParseToLabelSelector(o.userValidationLabelWatchDeployment)
 			if err != nil {
 				return fmt.Errorf("unable to parse %s=%s, err:%v", argValidationLabelWatchDeployment, o.userValidationLabelWatchDeployment, err)
 			}
@@ -279,14 +283,20 @@ func (o *generateOptions) Run() error {
 	var bytes []byte
 	bytes, err = json.Marshal(newKanaryDeployment)
 	if err != nil {
-		fmt.Fprintln(o.Out, fmt.Sprintln("error during json marshalling, err:", err))
+		_, err = fmt.Fprintln(o.Out, fmt.Sprintln("error during json marshalling, err:", err))
+		if err != nil {
+			return err
+		}
 	}
 	if o.userOutputFormat.Get() == outputFormatYAML {
 		bytes, err = yaml.JSONToYAML(bytes)
 	}
 
 	if err != nil {
-		fmt.Fprintln(o.Out, fmt.Sprintln("error during yaml marshalling, err:", err))
+		_, err = fmt.Fprintln(o.Out, fmt.Sprintln("error during yaml marshalling, err:", err))
+		if err != nil {
+			return err
+		}
 	}
 	_, err = o.Out.Write(bytes)
 
