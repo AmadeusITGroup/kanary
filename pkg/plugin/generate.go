@@ -34,12 +34,15 @@ var (
 )
 
 const (
-	argOutputFormat     = "output"
-	argServiceName      = "service"
-	argScale            = "scale"
-	argTraffic          = "traffic"
-	argValidation       = "validation"
-	argValidationPeriod = "validation-period"
+	argOutputFormat                   = "output"
+	argServiceName                    = "service"
+	argScale                          = "scale"
+	argTraffic                        = "traffic"
+	argValidationPeriod               = "validation-period"
+	argValidationLabelWatchPod        = "validation-labelwatch-pod"
+	argValidationLabelWatchDeployment = "validation-labelwatch-dep"
+	argValidationPromQLQuery          = "validation-promql-query"
+	argValidationPromQLServer         = "validation-promql-server"
 )
 
 type outputFormat string
@@ -88,14 +91,17 @@ type generateOptions struct {
 
 	genericclioptions.IOStreams
 
-	userNamespace        string
-	userDeploymentName   string
-	userServiceName      string
-	userScale            string
-	userTraffic          string
-	userValidation       string
-	userValidationPeriod time.Duration
-	userOutputFormat     outputFormatArg
+	userNamespace                      string
+	userDeploymentName                 string
+	userServiceName                    string
+	userScale                          string
+	userTraffic                        string
+	userValidationPeriod               time.Duration
+	userValidationLabelWatchPod        string
+	userValidationLabelWatchDeployment string
+	userValidationPromQLQuery          string
+	userValidationPromQLServer         string
+	userOutputFormat                   outputFormatArg
 }
 
 // newGenerateOptions provides an instance of KanaryOptions with default values
@@ -134,7 +140,10 @@ func NewCmdGenerate(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd.Flags().StringVarP(&o.userServiceName, argServiceName, "", "", "service name")
 	cmd.Flags().StringVarP(&o.userScale, argScale, "", "static", "kanary scale strategy [static|hpa]")
 	cmd.Flags().StringVarP(&o.userTraffic, argTraffic, "", "none", "kanary traffic strategy [none|service|both|mirror]")
-	cmd.Flags().StringVarP(&o.userValidation, argValidation, "", "manual", "kanary validation strategy [manual|labelwatch|promql]")
+	cmd.Flags().StringVarP(&o.userValidationLabelWatchPod, argValidationLabelWatchPod, "", "", "kanary validation labelwatch: string representation of label-selector for pod invalidation")
+	cmd.Flags().StringVarP(&o.userValidationLabelWatchDeployment, argValidationLabelWatchDeployment, "", "", "kanary validation labelwatch: string representation of label-selector for deployment invalidation")
+	cmd.Flags().StringVarP(&o.userValidationPromQLQuery, argValidationPromQLQuery, "", "", "kanary validation promql query")
+	cmd.Flags().StringVarP(&o.userValidationPromQLServer, argValidationPromQLServer, "", "", "kanary validation promql server uri")
 	cmd.Flags().DurationVarP(&o.userValidationPeriod, argValidationPeriod, "", 15*time.Minute, "kanary validation periode")
 	cmd.Flags().VarP(&o.userOutputFormat, argOutputFormat, "o", "generation ouput format (json or yaml)")
 
@@ -174,6 +183,11 @@ func (o *generateOptions) Validate() error {
 
 	if o.userDeploymentName == "" {
 		return fmt.Errorf("the deployment name is mandatory")
+	}
+
+	if (o.userValidationLabelWatchPod != "" && o.userValidationPromQLQuery != "") ||
+		(o.userValidationLabelWatchDeployment != "" && o.userValidationPromQLQuery != "") {
+		return fmt.Errorf("2 validation strategy can not use at the same time")
 	}
 
 	return nil
@@ -235,15 +249,29 @@ func (o *generateOptions) Run() error {
 		return fmt.Errorf("wrong value for 'traffic' parameter, current value:%s", o.userTraffic)
 	}
 
-	switch o.userValidation {
-	case "manual":
+	if o.userValidationLabelWatchDeployment == "" && o.userValidationLabelWatchPod == "" && o.userValidationPromQLQuery == "" {
 		newKanaryDeployment.Spec.Validation.Manual = &v1alpha1.KanaryDeploymentSpecValidationManual{}
-	case "promql":
-		newKanaryDeployment.Spec.Validation.PromQL = &v1alpha1.KanaryDeploymentSpecValidationPromQL{}
-	case "labelwatch":
+	} else if o.userValidationLabelWatchPod != "" || o.userValidationLabelWatchDeployment != "" {
 		newKanaryDeployment.Spec.Validation.LabelWatch = &v1alpha1.KanaryDeploymentSpecValidationLabelWatch{}
-	default:
-		return fmt.Errorf("wrong value for 'validation' parameter, current value:%s", o.userValidation)
+		if o.userValidationLabelWatchPod != "" {
+			selector, err := metav1.ParseToLabelSelector(o.userValidationLabelWatchPod)
+			if err != nil {
+				return fmt.Errorf("unable to parse %s=%s, err:%v", argValidationLabelWatchPod, o.userValidationLabelWatchPod, err)
+			}
+			newKanaryDeployment.Spec.Validation.LabelWatch.PodInvalidationLabels = selector
+		}
+		if o.userValidationLabelWatchDeployment != "" {
+			selector, err := metav1.ParseToLabelSelector(o.userValidationLabelWatchDeployment)
+			if err != nil {
+				return fmt.Errorf("unable to parse %s=%s, err:%v", argValidationLabelWatchDeployment, o.userValidationLabelWatchDeployment, err)
+			}
+			newKanaryDeployment.Spec.Validation.LabelWatch.DeploymentInvalidationLabels = selector
+		}
+	} else if o.userValidationPromQLQuery != "" {
+		newKanaryDeployment.Spec.Validation.PromQL = &v1alpha1.KanaryDeploymentSpecValidationPromQL{
+			Query:     o.userValidationPromQLQuery,
+			ServerURL: o.userValidationPromQLServer,
+		}
 	}
 
 	newKanaryDeployment = v1alpha1.DefaultKanaryDeployment(newKanaryDeployment)
