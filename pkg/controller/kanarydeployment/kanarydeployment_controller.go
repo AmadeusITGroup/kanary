@@ -28,6 +28,7 @@ import (
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies/traffic"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/comparison"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/enqueue"
 )
 
 var log = logf.Log.WithName("controller_kanarydeployment")
@@ -67,6 +68,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		IsController: true,
 		OwnerType:    &kanaryv1alpha1.KanaryDeployment{},
 	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to secondary resource Pod and requeue the owner KanaryDeployment
+	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &enqueue.RequestForKanaryLabel{})
 	return err
 }
 

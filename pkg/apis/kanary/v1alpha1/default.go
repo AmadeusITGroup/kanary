@@ -128,7 +128,6 @@ func defaultKanaryDeploymentSpecScale(s *KanaryDeploymentSpecScale) {
 	if s.HPA != nil {
 		defaultKanaryDeploymentSpecScaleHPA(s.HPA)
 	}
-
 }
 
 // defaultKanaryDeploymentSpecScaleHPA used to default HorizontalPodAutoscaler spec
