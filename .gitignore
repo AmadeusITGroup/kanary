@@ -83,3 +83,7 @@ tags
 /kubectl-kanary
 /plugin/output
 /plugin/kubectl-kanary_v*.tar.gz
+
+### IntelliJ IDEA ###
+.idea/
+*.iml
