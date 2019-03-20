@@ -4,6 +4,23 @@
 Kanary
 ======
 
+## Purpose
+
+The goal of Kanary project is to bring full automation of Canary Deployment to kubernetes. So far only rolling update is automated and fully integrated to Kubernetes.  Using CRD (Custom Resource Definition) and an associated controller, this project will allow you to define your Canary deployment and chain it with a classic rolling update in case of success.
+
+The Kanary CRD allows you to define the 3 main blocks of a Canary Deployment:
+- The deployment of the canary instance
+- The traffic management toward your canary instance
+- The validation phase
+
+Of course the Kanary CRD embedded a classic deployment object defintion as template. A dedicated pluggin will allow you to convert a classic deployment to a Kanary deployment using default values.
+
+No need for external tool to orchestrate the different phase, the creation and deletion of dedicated services and pods. Describe what you expect and let the controller do the job. Each phase comes with multiple options that will give full control on how you want to proceed.
+
+Note that it is possible to run multiple Kanary on top of the same deployment, and that the history of the original deployment is preserved (classic roolback capability is preserved).
+
+The next chapters will detail all possible options. Have a good Kanary testing!
+
 ## How to use it
 
 The `KanaryDeployment.Spec` is split in 4 different part:
@@ -185,3 +202,41 @@ Available Commands:
   get         get kanary deployment(s)
   help        Help about any command
 ```
+
+## Kanary explains with Diagrams
+
+When you start a new Kanary the controller strat watching the associated deployment. If there is none, it will create it.
+
+![Step0](docs/diagram/k0.png)
+
+The the controller start creating the associated Kanary deployment.
+
+![Step1](docs/diagram/k1.png)
+
+Kubernetes start creating the pods for the Kanary deployment.
+
+![Step2](docs/diagram/k2.png)
+
+If you want an "elastic" canary you can ask to use HPA for the Kanary deployment.
+
+![Step3](docs/diagram/k3.png)
+
+The controller will also create a dedicated service to target the Kanary instances. 
+
+![Step3](docs/diagram/k4.png)
+
+As explained in the **traffic**, the Kanary can receive traffic from only that service, or only live traffic like the classic deployment, or a mix of both.
+
+![Step5](docs/diagram/k5.png)
+
+Now that your Kanary receives traffic, it is time for validation. If the validation fails all the Kanary resources are deleted and the initial deployement remains as it has always been.
+
+In case the validation phase succeeds, the deployment will be updated with the new version that was used in the Kanary.
+
+![Step7](docs/diagram/k7.png)
+
+Once the Kanary validation is complete (success and rolling update started or failure), all the Kanary resources are cleaned automatically by the controller.
+
+The Kanary CRD is still remain so that you can read its status. Interesting in case of failure most of the time.
+
+![Step8](docs/diagram/k8.png)
