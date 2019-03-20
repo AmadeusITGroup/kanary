@@ -55,7 +55,7 @@ export PATH="$(pwd):$PATH"
 
 ```shell
 # run in a terminal readprice.sh to generate some traffic
-./$KUBERVISOR_PATH/examples/demo/scripts/readprice.sh
+$KUBERVISOR_PATH/examples/demo/scripts/readprice.sh
 
 # open the grafana dashboard http://grafana.demo.mk
 open http://grafana.demo.mk
