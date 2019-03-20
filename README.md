@@ -45,7 +45,7 @@ spec:
 
 ### Traffic configuration
 
-In the traffic section, the can define which source of traffic is targeting the canary deployment pods. Kanary defines several "sources":
+In the traffic section, you can define which source of traffic is targeting the canary deployment pods. Kanary defines several "sources":
 
 - `service`: canary pods are part of the pod behind the "production" service.
 - `kanary-service`: canary pods are behind a dedicated service, what is created by the Kanary controller. Canary pods don't received any production traffic.
