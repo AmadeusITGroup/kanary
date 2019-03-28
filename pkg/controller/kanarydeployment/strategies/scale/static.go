@@ -16,8 +16,13 @@ import (
 
 // NewStatic returns new scale.Static instance
 func NewStatic(s *kanaryv1alpha1.KanaryDeploymentSpecScaleStatic) Interface {
+	replicas := int32(1)
+	if s != nil {
+		replicas = *s.Replicas
+	}
+
 	return &staticImpl{
-		replicas: s.Replicas,
+		replicas: &replicas,
 	}
 }
 

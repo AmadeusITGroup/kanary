@@ -96,12 +96,12 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		}
 	}
 
-	// then scale if need
-	for impl, activated := range s.scale {
-		if activated {
-			status, result, err = impl.Scale(kclient, reqLogger, kd, canarydep)
+	// First process cleanup
+	for impl, activated := range s.traffic {
+		if !activated {
+			status, result, err = impl.Cleanup(kclient, reqLogger, kd, canarydep)
 			if err != nil {
-				return status, result, fmt.Errorf("error during Scale processing, err: %v", err)
+				return status, result, fmt.Errorf("error during Traffic Cleanup processing, err: %v", err)
 			}
 			if needReturn(&result) {
 				return status, result, err
@@ -109,12 +109,12 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		}
 	}
 
-	// First process cleanup
-	for impl, activated := range s.traffic {
-		if !activated {
-			status, result, err = impl.Cleanup(kclient, reqLogger, kd, canarydep)
+	// then scale if need
+	for impl, activated := range s.scale {
+		if activated {
+			status, result, err = impl.Scale(kclient, reqLogger, kd, canarydep)
 			if err != nil {
-				return status, result, fmt.Errorf("error during Traffic Cleanup processing, err: %v", err)
+				return status, result, fmt.Errorf("error during Scale processing, err: %v", err)
 			}
 			if needReturn(&result) {
 				return status, result, err
