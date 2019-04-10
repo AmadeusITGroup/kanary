@@ -345,13 +345,13 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 	mapFailed := map[string]string{"failed": "true"}
 
 	invalidationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
-		ValidationPeriod: &metav1.Duration{Duration: 4 * time.Minute},
+		ValidationPeriod: &metav1.Duration{Duration: 2 * time.Minute},
 		LabelWatch: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
 			DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
 		},
 	}
 	trafficConfig := &kanaryv1alpha1.KanaryDeploymentSpecTraffic{
-		Source: kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource,
+		Source: kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource,
 	}
 	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "nginx", "latest", replicas, nil, trafficConfig, invalidationConfig)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -413,6 +413,7 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 	check3Endpoints := func(eps *corev1.Endpoints) (bool, error) {
 		return checkEndpoints(eps, 3)
 	}
+
 	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check3Endpoints, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)

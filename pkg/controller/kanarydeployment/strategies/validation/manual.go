@@ -48,8 +48,7 @@ func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 		requeueAfter, deadlineReached = isDeadlinePeriodDone(m.validationPeriod, canaryDep.CreationTimestamp.Time, time.Now())
 		if !deadlineReached {
 			result.RequeueAfter = requeueAfter
-		}
-		if deadlineReached && m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
+		} else if m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
 			needUpdateDeployment = true
 		}
 	}
