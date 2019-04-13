@@ -54,7 +54,7 @@ func Test_kanaryServiceImpl_Traffic(t *testing.T) {
 			args: args{
 				kclient: fake.NewFakeClient([]runtime.Object{
 					utilstest.NewService(serviceName, namespace, nil, nil),
-					utilstest.NewService(serviceName+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name}, nil),
+					utilstest.NewService(serviceName+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name, kanaryv1alpha1.KanaryDeploymentActivateLabelKey: kanaryv1alpha1.KanaryDeploymentLabelValueTrue}, nil),
 				}...),
 				kd: kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
 			},
