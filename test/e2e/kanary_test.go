@@ -557,7 +557,7 @@ func newDeploymentSpec(name, image, tag string, command []string, replicas int32
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  "nginx",
+						Name:  "busybox-container",
 						Image: fmt.Sprintf("%s:%s", image, tag),
 						Ports: []corev1.ContainerPort{
 							{ContainerPort: 80},
