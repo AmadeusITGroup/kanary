@@ -46,9 +46,10 @@ func TestNewCanaryServiceForKanaryDeployment(t *testing.T) {
 			want: utilstest.NewService(name+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentActivateLabelKey: kanaryv1alpha1.KanaryDeploymentLabelValueTrue, kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name}, &utilstest.NewServiceOptions{Type: corev1.ServiceTypeClusterIP}),
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewCanaryServiceForKanaryDeployment(tt.args.kd, tt.args.service, tt.args.overwriteLabel); !equality.Semantic.DeepEqual(got, tt.want) {
+			if got, _ := NewCanaryServiceForKanaryDeployment(tt.args.kd, tt.args.service, tt.args.overwriteLabel, PrepareSchemeForOwnerRef(), false); !equality.Semantic.DeepEqual(got, tt.want) {
 				t.Errorf("NewCanaryServiceForKanaryDeployment() = %v, want %v", got, tt.want)
 			}
 		})
