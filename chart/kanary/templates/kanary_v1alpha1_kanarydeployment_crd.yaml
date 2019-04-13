@@ -9,6 +9,9 @@ spec:
     listKind: KanaryDeploymentList
     plural: kanarydeployments
     singular: kanarydeployment
+    shortNames:
+    - kd
+    - kanary
   scope: Namespaced
   version: v1alpha1
   subresources:

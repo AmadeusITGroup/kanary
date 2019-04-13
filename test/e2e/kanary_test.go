@@ -251,7 +251,7 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 	}
 
 	invalidationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
-		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
+		ValidationPeriod: &metav1.Duration{Duration: 50 * time.Second},
 		Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
 			StatusAfterDealine: kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus,
 		},
