@@ -2,6 +2,7 @@ package strategies
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
 
@@ -63,26 +64,35 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 	}*/
 
 	return &strategy{
-		scale:      scaleImpls,
-		traffic:    trafficImpls,
-		validation: validationImpl,
+		scale:               scaleImpls,
+		traffic:             trafficImpls,
+		validation:          validationImpl,
+		subResourceDisabled: os.Getenv("SUBRESOURCE_DISABLED") == "1",
 	}, nil
 }
 
 type strategy struct {
-	scale      map[scale.Interface]bool
-	traffic    map[traffic.Interface]bool
-	validation validation.Interface
+	scale               map[scale.Interface]bool
+	traffic             map[traffic.Interface]bool
+	validation          validation.Interface
+	subResourceDisabled bool
 }
 
 func (s *strategy) Apply(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (result reconcile.Result, err error) {
 	var newStatus *kanaryv1alpha1.KanaryDeploymentStatus
 	newStatus, result, err = s.process(kclient, reqLogger, kd, dep, canarydep)
 	utils.UpdateKanaryDeploymentStatusConditionsFailure(newStatus, metav1.Now(), err)
-	return utils.UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err)
+	if s.subResourceDisabled {
+		//use plain resource
+		return utils.UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err) //Try with plain resource
+	} else {
+		//use subresource
+		return utils.UpdateKanaryDeploymentStatus(kclient.Status(), reqLogger, kd, newStatus, result, err) //Updating StatusSubresource may depends on Kubernetes version! https://book.kubebuilder.io/basics/status_subresource.html
+	}
 }
 
 func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
+	reqLogger.Info("Cleanup scale")
 	// First cleanup if needed
 	for impl, activated := range s.scale {
 		if !activated {
@@ -96,6 +106,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		}
 	}
 
+	reqLogger.Info("Cleanup traffic")
 	// First process cleanup
 	for impl, activated := range s.traffic {
 		if !activated {
@@ -109,6 +120,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		}
 	}
 
+	reqLogger.Info("Implement scale")
 	// then scale if need
 	for impl, activated := range s.scale {
 		if activated {
@@ -122,6 +134,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		}
 	}
 
+	reqLogger.Info("Implement traffic")
 	// Then apply Traffic configuration
 	for impl, activated := range s.traffic {
 		if activated {
@@ -135,6 +148,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 
 		}
 	}
+	reqLogger.Info("Check Validation")
 	if validation.IsValidationDelayPeriodDone(kd) {
 		status, result, err = s.validation.Validation(kclient, reqLogger, kd, dep, canarydep)
 		if err != nil {

@@ -25,7 +25,7 @@ container:
 test:
 	./go.test.sh
 
-e2e: 
+e2e: build container
 	operator-sdk test local ./test/e2e
 
 push: container

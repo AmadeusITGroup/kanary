@@ -108,7 +108,7 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// canary deployment is replicas is setted to 0 in deactivated mode.
+	// wait for defaulting by the operator and then check kanary deployment is scaled to 1
 	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, canaryName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
@@ -121,12 +121,6 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 		}
 		k.Spec.Validation.Manual.Status = kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus
 	}, retryInterval, timeout)
-
-	// wait that the canary deployment scale to 1
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, canaryName, 1, retryInterval, timeout)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// test if the canary deployment have been updated
 	isUpdated := func(dep *appsv1.Deployment) (bool, error) {
@@ -176,7 +170,7 @@ func ManualValidationAfterDeadline(t *testing.T) {
 	}
 
 	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
-		ValidationPeriod: &metav1.Duration{Duration: time.Minute},
+		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
 		Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
 			StatusAfterDealine: kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus,
 		},
@@ -247,7 +241,7 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 	}
 
 	invalidationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
-		ValidationPeriod: &metav1.Duration{Duration: time.Minute},
+		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
 		Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
 			StatusAfterDealine: kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus,
 		},
@@ -294,8 +288,10 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 		}
 		return false, nil
 	}
-	utils.WaitForFuncOnKanaryDeployment(t, f.Client, namespace, name, checkInvalidStatus, retryInterval, 2*timeout)
-
+	err = utils.WaitForFuncOnKanaryDeployment(t, f.Client, namespace, name, checkInvalidStatus, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// check that pods are not anymore behind the service
 	check3Endpoints := func(eps *corev1.Endpoints) (bool, error) {
 		return checkEndpoints(eps, 3)
@@ -518,7 +514,7 @@ func InitKanaryOperator(t *testing.T) (*framework.Framework, *framework.TestCtx,
 	}
 	// get global framework variables
 	f := framework.Global
-	// wait for memcached-operator to be ready
+	// wait for kanary-operator to be ready
 	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "kanary", 1, retryInterval, timeout)
 	return f, ctx, err
 }

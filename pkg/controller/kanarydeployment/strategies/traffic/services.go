@@ -107,18 +107,20 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 			currentKanaryService := &corev1.Service{}
 			err = kclient.Get(context.TODO(), types.NamespacedName{Name: kanaryService.Name, Namespace: kanaryService.Namespace}, currentKanaryService)
 			if err != nil && errors.IsNotFound(err) {
+				// Kanary Service does not exist, let's create it
 				err = kclient.Create(context.TODO(), kanaryService)
 				if err != nil {
 					reqLogger.Error(err, "failed to create new CanaryService", "Namespace", kanaryService.Namespace, "Service.Name", kanaryService.Name)
 					return status, true, reconcile.Result{}, err
 				}
 				utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.TrafficKanaryDeploymentConditionType, corev1.ConditionTrue, "Traffic source: "+string(k.conf.Source))
-				// Deployment created successfully - return and requeue
+				// Service created successfully - return and requeue
 				return status, true, reconcile.Result{Requeue: true}, nil
 			} else if err != nil {
 				reqLogger.Error(err, "failed to get Service")
 				return status, true, reconcile.Result{}, err
 			} else {
+				// Kanary Service exist, let's update it if needed
 				compareKanaryServiceSpec := kanaryService.Spec.DeepCopy()
 				compareCurrentServiceSpec := currentKanaryService.Spec.DeepCopy()
 				{
@@ -136,6 +138,9 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 						reqLogger.Error(err, "unable to update the kanary service")
 						return status, true, reconcile.Result{}, err
 					}
+					utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.TrafficKanaryDeploymentConditionType, corev1.ConditionTrue, "Traffic source: "+string(k.conf.Source))
+					// Service updated successfully - return and requeue
+					return status, true, reconcile.Result{Requeue: true}, nil
 				}
 			}
 		}
@@ -211,6 +216,7 @@ func (k *kanaryServiceImpl) clearServices(kclient client.Client, reqLogger logr.
 	return needsReturn, result, err
 }
 
+//Set the labels on the kanary pods to match the service
 func (k *kanaryServiceImpl) updatePodLabels(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, service *corev1.Service) (needsReturn bool, result reconcile.Result, err error) {
 	// in this case remove the pod from live traffic service.
 	pods := &corev1.PodList{}
@@ -252,6 +258,7 @@ func (k *kanaryServiceImpl) updatePodLabels(kclient client.Client, reqLogger log
 	return requeue, reconcile.Result{Requeue: requeue}, utilerrors.NewAggregate(errs)
 }
 
+//Remove the labels on the kanary pods so that it does not match the service
 func (k *kanaryServiceImpl) desactivateService(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, service *corev1.Service) (needsReturn bool, result reconcile.Result, err error) {
 	var requeue bool
 	// in this case remove the pod from live traffic service.
