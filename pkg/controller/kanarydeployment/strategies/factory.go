@@ -67,7 +67,7 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 		scale:               scaleImpls,
 		traffic:             trafficImpls,
 		validation:          validationImpl,
-		subResourceDisabled: os.Getenv("SUBRESOURCE_DISABLED") == "1",
+		subResourceDisabled: os.Getenv("KANARY_STATUS_SUBRESOURCE_DISABLED") == "1",
 	}, nil
 }
 
