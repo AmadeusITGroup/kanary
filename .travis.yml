@@ -1,0 +1,57 @@
+language: go
+dist: xenial
+sudo: required
+go:
+- 1.11.x
+os: linux
+services:
+- docker
+env:
+  global:
+  - TAG=${TRAVIS_TAG:=${TRAVIS_COMMIT}}
+  - GH_URL=https://amadeusitgroup.github.io/kanary
+go_import_path: github.com/amadeusitgroup/kanary
+install:
+- ./hack/install_kube.sh
+- export KUBECONFIG="$(kind get kubeconfig-path)"
+- kubectl get nodes
+- kubectl get pods --all-namespaces
+- curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash
+- kubectl -n kube-system create sa tiller
+- kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+- helm init --service-account tiller
+- make install-tools
+stages:
+- name: build
+- name: release
+  if: tag IS present
+jobs:
+  include:
+  - stage: build
+    name: build
+    script:
+    - make build
+    - make test
+    - make validate
+    - make TAG=$TAG container
+    - kind load docker-image kanary/operator:$TAG
+    - operator-sdk test local ./test/e2e --image kanary/operator:$TAG --kubeconfig $KUBECONFIG
+  - stage: release
+    script:
+      - docker login -u "$DOCKER_USERNAME" p "$DOCKER_PASSWORD"
+      - curl -sL https://git.io/goreleaser | bash
+    deploy:
+    - provider: releases
+      api_key:
+        secure: $GITHUB_TOKEN
+      skip_cleanup: true
+      file:
+      - docs/helm-kanary-$TAG.tgz
+      on:
+        tags: true
+        branches:
+          only:
+          - master
+          - /^v\d+(\.\d+)+$/
+after_success:
+- bash <(curl -s https://codecov.io/bash) -f $TRAVIS_BUILD_DIR/coverage.txt

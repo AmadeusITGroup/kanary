@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	"github.com/amadeusitgroup/kanary/pkg/config"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies/scale"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies/traffic"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies/validation"
@@ -67,7 +68,7 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 		scale:               scaleImpls,
 		traffic:             trafficImpls,
 		validation:          validationImpl,
-		subResourceDisabled: os.Getenv("KANARY_STATUS_SUBRESOURCE_DISABLED") == "1",
+		subResourceDisabled: os.Getenv(config.KanaryStatusSubresourceDisabledEnvVar) == "1",
 	}, nil
 }
 
@@ -85,10 +86,9 @@ func (s *strategy) Apply(kclient client.Client, reqLogger logr.Logger, kd *kanar
 	if s.subResourceDisabled {
 		//use plain resource
 		return utils.UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err) //Try with plain resource
-	} else {
-		//use subresource
-		return utils.UpdateKanaryDeploymentStatus(kclient.Status(), reqLogger, kd, newStatus, result, err) //Updating StatusSubresource may depends on Kubernetes version! https://book.kubebuilder.io/basics/status_subresource.html
 	}
+	//use subresource
+	return utils.UpdateKanaryDeploymentStatus(kclient.Status(), reqLogger, kd, newStatus, result, err) //Updating StatusSubresource may depends on Kubernetes version! https://book.kubebuilder.io/basics/status_subresource.html
 }
 
 func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {

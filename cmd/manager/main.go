@@ -12,14 +12,18 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
+
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/amadeusitgroup/kanary/pkg/apis"
+	kanaryConfig "github.com/amadeusitgroup/kanary/pkg/config"
 	"github.com/amadeusitgroup/kanary/pkg/controller"
 )
 
@@ -56,13 +60,27 @@ func main() {
 	}
 
 	//auto discover if subresource  will work or not
-	if os.Getenv("KANARY_STATUS_SUBRESOURCE_DISABLED") == "" {
+	if os.Getenv(kanaryConfig.KanaryStatusSubresourceDisabledEnvVar) == "" {
 		discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(cfg)
-		serverVersion, _ := discoveryClient.ServerVersion()
-		major, _ := strconv.Atoi(serverVersion.Major)
-		minor, _ := strconv.Atoi(serverVersion.Minor)
+		var serverVersion *version.Info
+		if serverVersion, err = discoveryClient.ServerVersion(); err != nil {
+			log.Error(err, "")
+			os.Exit(1)
+		}
+		var major, minor int
+		if major, err = strconv.Atoi(serverVersion.Major); err != nil {
+			log.Error(err, "")
+			os.Exit(1)
+		}
+		if minor, err = strconv.Atoi(serverVersion.Minor); err != nil {
+			log.Error(err, "")
+			os.Exit(1)
+		}
 		if major == 1 && minor < 10 { // (1.10+ : https://book.kubebuilder.io/basics/status_subresource.html )
-			os.Setenv("KANARY_STATUS_SUBRESOURCE_DISABLED", "1")
+			if err = os.Setenv(kanaryConfig.KanaryStatusSubresourceDisabledEnvVar, "1"); err != nil {
+				log.Error(err, "")
+				os.Exit(1)
+			}
 		}
 	}
 

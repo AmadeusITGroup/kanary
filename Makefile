@@ -4,6 +4,7 @@ ARTIFACT_PLUGIN=kubectl-kanary
 # 0.0 shouldn't clobber any released builds
 TAG= latest
 PREFIX =  kanary/${ARTIFACT}
+SOURCEDIR = "."
 
 SOURCES := $(shell find $(SOURCEDIR) ! -name "*_test.go" -name '*.go')
 
@@ -41,7 +42,7 @@ generate:
 	operator-sdk generate k8s
 
 install-tools:
-	./hack/install-gometalinter.sh
+	BINDIR=${GOPATH}/bin ./hack/install-gometalinter.sh
 	./hack/install-operator-sdk.sh
 
 .PHONY: build push clean test e2e validate install-tools

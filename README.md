@@ -1,6 +1,11 @@
 
 ![Kanary Logo](docs/kanary_logo.png)
 
+[![Build Status](https://travis-ci.org/AmadeusITGroup/kanary.svg?branch=master)](https://travis-ci.org/AmadeusITGroup/kanary)
+[![Go Report Card](https://goreportcard.com/badge/github.com/amadeusitgroup/kanary)](https://goreportcard.com/report/github.com/amadeusitgroup/kanary)
+[![codecov](https://codecov.io/gh/amadeusitgroup/kanary/branch/master/graph/badge.svg)](https://codecov.io/gh/amadeusitgroup/kanary)
+
+
 Kanary
 ======
 
