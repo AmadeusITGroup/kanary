@@ -97,7 +97,7 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 		},
 
 		{
-			name: "already some configuratin",
+			name: "already some configuration",
 			kd: &KanaryDeployment{
 				Spec: KanaryDeploymentSpec{
 					Scale: KanaryDeploymentSpecScale{

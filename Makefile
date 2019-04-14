@@ -36,7 +36,7 @@ clean:
 	rm -f ${ARTIFACT}
 
 validate:
-	gometalinter --vendor ./... -e test -e zz_generated --deadline 9m -D gocyclo
+	gometalinter --vendor ./... -e zz_generated --deadline 9m -D gocyclo
 
 generate:
 	operator-sdk generate k8s

@@ -21,6 +21,7 @@ import (
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 )
 
+// WaitForFuncOnDeployment used to wait a valid condition on a Deployment
 func WaitForFuncOnDeployment(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, f func(dep *appsv1beta1.Deployment) (bool, error), retryInterval, timeout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		deployment, err := kubeclient.AppsV1beta1().Deployments(namespace).Get(name, metav1.GetOptions{IncludeUninitialized: true})
@@ -38,6 +39,7 @@ func WaitForFuncOnDeployment(t *testing.T, kubeclient kubernetes.Interface, name
 	})
 }
 
+// WaitForFuncOnEndpoints used to wait a valid condition on Endpoints
 func WaitForFuncOnEndpoints(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, f func(*corev1.Endpoints) (bool, error), retryInterval, timeout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		eps, err := kubeclient.CoreV1().Endpoints(namespace).Get(name, metav1.GetOptions{})
@@ -55,6 +57,7 @@ func WaitForFuncOnEndpoints(t *testing.T, kubeclient kubernetes.Interface, names
 	})
 }
 
+// WaitForFuncOnKanaryDeployment used to wait a valid condition on a KanaryDeployment
 func WaitForFuncOnKanaryDeployment(t *testing.T, client framework.FrameworkClient, namespace, name string, f func(kd *kanaryv1alpha1.KanaryDeployment) (bool, error), retryInterval, timeout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		objKey := dynclient.ObjectKey{
@@ -77,6 +80,7 @@ func WaitForFuncOnKanaryDeployment(t *testing.T, client framework.FrameworkClien
 	})
 }
 
+// WaitForFuncOnHPA used to wait a valid condition on a HPA
 func WaitForFuncOnHPA(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, f func(hpa *v2beta1.HorizontalPodAutoscaler) (bool, error), retryInterval, timeout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		hpa, err := kubeclient.AutoscalingV2beta1().HorizontalPodAutoscalers(namespace).Get(name, metav1.GetOptions{})

@@ -48,9 +48,6 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 		client client.Client
 		scheme *runtime.Scheme
 	}
-	type args struct {
-		request reconcile.Request
-	}
 	tests := []struct {
 		name     string
 		fields   fields
