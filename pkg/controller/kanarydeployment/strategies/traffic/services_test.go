@@ -7,11 +7,11 @@ import (
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 	kanaryv1alpha1test "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1/test"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 	utilstest "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/test"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -21,10 +21,6 @@ import (
 func Test_kanaryServiceImpl_Traffic(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(true))
 	log := logf.Log.WithName("Test_cleanupImpl_Traffic")
-
-	// Register operator types with the runtime scheme.
-	s := scheme.Scheme
-	s.AddKnownTypes(kanaryv1alpha1.SchemeGroupVersion, &kanaryv1alpha1.KanaryDeployment{})
 
 	var (
 		name            = "foo"
@@ -97,7 +93,8 @@ func Test_kanaryServiceImpl_Traffic(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reqLogger := log.WithValues("test:", tt.name)
 			c := &kanaryServiceImpl{
-				conf: &tt.args.kd.Spec.Traffic,
+				conf:   &tt.args.kd.Spec.Traffic,
+				scheme: utils.PrepareSchemeForOwnerRef(),
 			}
 			_, gotResult, err := c.Traffic(tt.args.kclient, reqLogger, tt.args.kd, tt.args.canaryDep)
 			if (err != nil) != tt.wantErr {
@@ -119,10 +116,6 @@ func Test_kanaryServiceImpl_Traffic(t *testing.T) {
 func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(true))
 	log := logf.Log.WithName("Test_cleanupImpl_Traffic")
-
-	// Register operator types with the runtime scheme.
-	s := scheme.Scheme
-	s.AddKnownTypes(kanaryv1alpha1.SchemeGroupVersion, &kanaryv1alpha1.KanaryDeployment{})
 
 	var (
 		name            = "foo"
@@ -235,7 +228,8 @@ func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reqLogger := log.WithValues("test:", tt.name)
 			c := &kanaryServiceImpl{
-				conf: &tt.args.kd.Spec.Traffic,
+				conf:   &tt.args.kd.Spec.Traffic,
+				scheme: utils.PrepareSchemeForOwnerRef(),
 			}
 			gotStatus, gotResult, err := c.Cleanup(tt.args.kclient, reqLogger, tt.args.kd, tt.args.canaryDep)
 			if (err != nil) != tt.wantErr {

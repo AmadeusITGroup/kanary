@@ -11,12 +11,22 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/amadeusitgroup/kanary/pkg/apis"
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/comparison"
 )
 
+//PrepareSchemeForOwnerRef return the scheme required to write the kanary ownerreference
+func PrepareSchemeForOwnerRef() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	if err := apis.AddToScheme(scheme); err != nil {
+		panic(err.Error())
+	}
+	return scheme
+}
+
 // NewCanaryServiceForKanaryDeployment returns a Service object
-func NewCanaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, service *corev1.Service, overwriteLabel bool) *corev1.Service {
+func NewCanaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, service *corev1.Service, overwriteLabel bool, scheme *runtime.Scheme, setOwnerRef bool) (*corev1.Service, error) {
 	kanaryServiceName := GetCanaryServiceName(kd)
 
 	labelSelector := map[string]string{}
@@ -45,7 +55,13 @@ func NewCanaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, se
 	newService.Spec.ClusterIP = ""
 	newService.Status = corev1.ServiceStatus{}
 
-	return newService
+	if setOwnerRef {
+		// Set KanaryDeployment instance as the owner and controller
+		if err := controllerutil.SetControllerReference(kd, newService, scheme); err != nil {
+			return nil, err
+		}
+	}
+	return newService, nil
 }
 
 // GetCanaryServiceName returns the canary service name depending of the spec

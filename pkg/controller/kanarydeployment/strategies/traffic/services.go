@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
@@ -27,12 +28,14 @@ import (
 // NewKanaryService returns new traffic.KanaryService instance
 func NewKanaryService(s *kanaryv1alpha1.KanaryDeploymentSpecTraffic) Interface {
 	return &kanaryServiceImpl{
-		conf: s,
+		conf:   s,
+		scheme: utils.PrepareSchemeForOwnerRef(),
 	}
 }
 
 type kanaryServiceImpl struct {
-	conf *kanaryv1alpha1.KanaryDeploymentSpecTraffic
+	conf   *kanaryv1alpha1.KanaryDeploymentSpecTraffic
+	scheme *runtime.Scheme
 }
 
 func (k *kanaryServiceImpl) Traffic(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, canaryDep *appsv1beta1.Deployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error) {
@@ -103,7 +106,11 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 	if service != nil {
 		switch k.conf.Source {
 		case kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource, kanaryv1alpha1.KanaryServiceKanaryDeploymentSpecTrafficSource:
-			kanaryService := utils.NewCanaryServiceForKanaryDeployment(kd, service, NeedOverwriteSelector(kd))
+			kanaryService, err2 := utils.NewCanaryServiceForKanaryDeployment(kd, service, NeedOverwriteSelector(kd), k.scheme, true)
+			if err2 != nil {
+				reqLogger.Error(err, "failed to prepare CanaryService", "Namespace", kanaryService.Namespace, "Service.Name", kanaryService.Name)
+				return status, true, reconcile.Result{}, err
+			}
 			currentKanaryService := &corev1.Service{}
 			err = kclient.Get(context.TODO(), types.NamespacedName{Name: kanaryService.Name, Namespace: kanaryService.Namespace}, currentKanaryService)
 			if err != nil && errors.IsNotFound(err) {
