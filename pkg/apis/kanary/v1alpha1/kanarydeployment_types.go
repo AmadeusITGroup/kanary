@@ -93,7 +93,7 @@ type HorizontalPodAutoscalerSpec struct {
 type KanaryDeploymentSpecTraffic struct {
 	// Source defines the traffic source that targets the canary deployment pods
 	Source KanaryDeploymentSpecTrafficSource `json:"source,omitempty"`
-	// KanaryService is the name of the service that will be created to target specificaly
+	// KanaryService is the name of the service that will be created to target specifically
 	// pods that serve the canary service version.
 	// if kanaryService is empty or not define, a service name will be generated from the
 	// serviceName provided in the KanaryDeploymentSpec.
@@ -162,7 +162,7 @@ const (
 type KanaryDeploymentSpecValidationManualStatus string
 
 const (
-	// ValidKanaryDeploymentSpecValidationManualStatus means that the KanaryDeployment have been validated sucessfuly.
+	// ValidKanaryDeploymentSpecValidationManualStatus means that the KanaryDeployment have been validated successfully.
 	ValidKanaryDeploymentSpecValidationManualStatus KanaryDeploymentSpecValidationManualStatus = "valid"
 	// InvalidKanaryDeploymentSpecValidationManualStatus means that the KanaryDeployment have been invalidated.
 	InvalidKanaryDeploymentSpecValidationManualStatus KanaryDeploymentSpecValidationManualStatus = "invalid"

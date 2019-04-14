@@ -24,7 +24,10 @@ func NewDeployment(name, namespace string, replicas int32, options *NewDeploymen
 	spec := &appsv1beta1.DeploymentSpec{
 		Replicas: &replicas,
 	}
-	md5, _ := comparison.GenerateMD5DeploymentSpec(spec)
+	md5, err := comparison.GenerateMD5DeploymentSpec(spec)
+	if err != nil {
+		md5 = "fakeMd5"
+	}
 	newDep := &appsv1beta1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -61,6 +64,7 @@ type NewServiceOptions struct {
 	Ports []corev1.ServicePort
 }
 
+// NewService returns new corev1.Service instance
 func NewService(name, namespace string, labelsSelector map[string]string, options *NewServiceOptions) *corev1.Service {
 	newService := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -84,6 +88,7 @@ func NewService(name, namespace string, labelsSelector map[string]string, option
 	return newService
 }
 
+// NewPodOptions used to store Pod creation options
 type NewPodOptions struct {
 	CreationTime *metav1.Time
 	Labels       map[string]string

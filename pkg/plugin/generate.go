@@ -129,11 +129,7 @@ func NewCmdGenerate(streams genericclioptions.IOStreams) *cobra.Command {
 			if err := o.Validate(); err != nil {
 				return err
 			}
-			if err := o.Run(); err != nil {
-				return err
-			}
-
-			return nil
+			return o.Run()
 		},
 	}
 
@@ -145,7 +141,7 @@ func NewCmdGenerate(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd.Flags().StringVarP(&o.userValidationPromQLQuery, argValidationPromQLQuery, "", "", "kanary validation promql query")
 	cmd.Flags().StringVarP(&o.userValidationPromQLServer, argValidationPromQLServer, "", "", "kanary validation promql server uri")
 	cmd.Flags().DurationVarP(&o.userValidationPeriod, argValidationPeriod, "", 15*time.Minute, "kanary validation periode")
-	cmd.Flags().VarP(&o.userOutputFormat, argOutputFormat, "o", "generation ouput format (json or yaml)")
+	cmd.Flags().VarP(&o.userOutputFormat, argOutputFormat, "o", "generation output format (json or yaml)")
 
 	o.configFlags.AddFlags(cmd.Flags())
 
