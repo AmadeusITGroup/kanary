@@ -2,7 +2,6 @@ package kanarydeployment
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -93,7 +92,7 @@ type ReconcileKanaryDeployment struct {
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileKanaryDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Namespace", request.Namespace, "KanaryDeployment", request.Name)
-	reqLogger.V(4).Info("Reconciling KanaryDeployment")
+	reqLogger.Info("Reconciling KanaryDeployment")
 
 	// Fetch the KanaryDeployment instance
 	instance := &kanaryv1alpha1.KanaryDeployment{}
@@ -108,16 +107,16 @@ func (r *ReconcileKanaryDeployment) Reconcile(request reconcile.Request) (reconc
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-	reqLogger.V(4).Info(fmt.Sprintf("Reconciling KanaryDeployment Status: %v", instance.Status))
 
 	if !kanaryv1alpha1.IsDefaultedKanaryDeployment(instance) {
-		reqLogger.V(4).Info("Defaulting values")
+		reqLogger.Info("Defaulting values")
 		defaultedInstance := kanaryv1alpha1.DefaultKanaryDeployment(instance)
 		err = r.client.Update(context.TODO(), defaultedInstance)
 		if err != nil {
 			reqLogger.Error(err, "failed to update KanaryDeployment")
 			return reconcile.Result{}, err
 		}
+		reqLogger.Info("Defaulting done, requeuing")
 		// KanaryDeployment is now defaulted return and requeue
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -203,7 +202,7 @@ func (r *ReconcileKanaryDeployment) manageDeploymentCreationFunc(reqLogger logr.
 			return deployment, true, reconcile.Result{}, err
 		}
 
-		reqLogger.V(4).Info("Creating a new Deployment")
+		reqLogger.Info("Creating a new Deployment")
 		err = r.client.Create(context.TODO(), deployment)
 		if err != nil {
 			reqLogger.Error(err, "failed to create new Deployment")
