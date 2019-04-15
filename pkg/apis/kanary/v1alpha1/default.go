@@ -189,6 +189,11 @@ func defaultKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation) {
 	if v.Manual == nil && v.LabelWatch == nil && v.PromQL == nil {
 		defaultKanaryDeploymentSpecScaleValidationManual(v)
 	}
+	if v.Manual != nil {
+		if v.Manual.StatusAfterDealine == "" {
+			v.Manual.StatusAfterDealine = NoneKanaryDeploymentSpecValidationManualDeadineStatus
+		}
+	}
 }
 
 func defaultKanaryDeploymentSpecScaleValidationManual(v *KanaryDeploymentSpecValidation) {

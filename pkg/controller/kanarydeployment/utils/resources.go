@@ -68,7 +68,7 @@ func NewCanaryServiceForKanaryDeployment(kd *kanaryv1alpha1.KanaryDeployment, se
 func GetCanaryServiceName(kd *kanaryv1alpha1.KanaryDeployment) string {
 	kanaryServiceName := kd.Spec.Traffic.KanaryService
 	if kanaryServiceName == "" {
-		kanaryServiceName = fmt.Sprintf("%s-kanary", kd.Spec.ServiceName)
+		kanaryServiceName = fmt.Sprintf("%s-kanary-%s", kd.Spec.ServiceName, kd.Name)
 	}
 	return kanaryServiceName
 }
@@ -157,7 +157,7 @@ func GetDeploymentName(kd *kanaryv1alpha1.KanaryDeployment) string {
 
 // GetCanaryDeploymentName returns the Canary Deployment name from the KanaryDeployment instance
 func GetCanaryDeploymentName(kd *kanaryv1alpha1.KanaryDeployment) string {
-	return fmt.Sprintf("%s-kanary", GetDeploymentName(kd))
+	return fmt.Sprintf("%s-kanary-%s", GetDeploymentName(kd), kd.Name)
 }
 
 // GetLabelsForKanaryDeploymentd return labels belonging to the given KanaryDeployment CR name.
