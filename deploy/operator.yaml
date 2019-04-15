@@ -21,7 +21,6 @@ spec:
             name: metrics
           command:
           - kanary
-          args: ["-v","4"]
           imagePullPolicy: IfNotPresent
           readinessProbe:
             exec:
