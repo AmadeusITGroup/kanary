@@ -2,7 +2,7 @@
 
 Demonstrate the ability to run multiple Kanary deployments at the same time on to of the same deployment
 
-Creating a dedicated namespeace:
+Creating a dedicated namespace:
 ```
 kubectl create ns multikanary
 kubens multikanary
