@@ -13,6 +13,7 @@ function wait_for_deployment() {
     deployment=${1}
     desc "waiting for deployment: ${deployment}"
     until [ $(kubectl get deployment ${deployment} -ojsonpath="{.status.conditions[?(@.type=='Available')].status}") == "True" ] > /dev/null 2>&1; do sleep 1; kubectl get deployment ${deployment}; done
+#    kubectl wait --for=condition=available --timeout=600s deployment/${deployment}
 }
 
 desc "Create a dedicated namespace"
@@ -42,6 +43,9 @@ run "kubectl get kd"
 
 wait_for_deployment "myapp-kanary-david"
 wait_for_deployment "myapp-kanary-cedric"
+
+desc "Checking kanary deployments with plugin"
+run "kubectl kanary get"
 
 desc "Inventory of objects"
 run "kubectl get all"
