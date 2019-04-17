@@ -128,7 +128,7 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			},
 			wantFunc: func(r *ReconcileKanaryDeployment) error {
 				deployment := &appsv1beta1.Deployment{}
-				err := r.client.Get(context.TODO(), types.NamespacedName{Name: name + "-kanary", Namespace: namespace}, deployment)
+				err := r.client.Get(context.TODO(), types.NamespacedName{Name: name + "-kanary-" + name, Namespace: namespace}, deployment)
 				if err != nil && errors.IsNotFound(err) {
 					return fmt.Errorf("unable to get the created canary deployment, %v", err)
 				}
@@ -160,7 +160,7 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 				client: fake.NewFakeClient([]runtime.Object{
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, nil),
 					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
-					utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
+					utilstest.NewDeployment(name+"-kanary-"+name, namespace, 1, nil),
 				}...),
 			},
 			want: reconcile.Result{
@@ -190,7 +190,7 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 				client: fake.NewFakeClient([]runtime.Object{
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
 					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
-					utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
+					utilstest.NewDeployment(name+"-kanary-"+name, namespace, 1, nil),
 				}...),
 			},
 			want: reconcile.Result{
@@ -222,7 +222,7 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 				client: fake.NewFakeClient([]runtime.Object{
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
 					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
-					utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
+					utilstest.NewDeployment(name+"-kanary-"+name, namespace, 1, nil),
 					utilstest.NewService(serviceName, namespace, nil, nil),
 				}...),
 			},
@@ -231,7 +231,7 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			},
 			wantFunc: func(r *ReconcileKanaryDeployment) error {
 				service := &corev1.Service{}
-				err := r.client.Get(context.TODO(), types.NamespacedName{Name: name + "-kanary", Namespace: namespace}, service)
+				err := r.client.Get(context.TODO(), types.NamespacedName{Name: serviceName + "-kanary-" + name, Namespace: namespace}, service)
 				if err != nil && errors.IsNotFound(err) {
 					return fmt.Errorf("unable to get the created canary service, %v", err)
 				}

@@ -50,7 +50,7 @@ func Test_kanaryServiceImpl_Traffic(t *testing.T) {
 			args: args{
 				kclient: fake.NewFakeClient([]runtime.Object{
 					utilstest.NewService(serviceName, namespace, nil, nil),
-					utilstest.NewService(serviceName+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name, kanaryv1alpha1.KanaryDeploymentActivateLabelKey: kanaryv1alpha1.KanaryDeploymentLabelValueTrue}, nil),
+					utilstest.NewService(serviceName+"-kanary-"+name, namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name, kanaryv1alpha1.KanaryDeploymentActivateLabelKey: kanaryv1alpha1.KanaryDeploymentLabelValueTrue}, nil),
 				}...),
 				kd: kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
 			},
@@ -163,7 +163,7 @@ func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 			name: "service not active, one service to clean",
 			args: args{
 				kclient: fake.NewFakeClient([]runtime.Object{
-					utilstest.NewService(serviceName+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name}, nil),
+					utilstest.NewService(serviceName+"-kanary-"+name, namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name}, nil),
 				}...),
 				kd: kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, nil),
 			},
@@ -186,7 +186,7 @@ func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 			name: "service is active, nothing to delete",
 			args: args{
 				kclient: fake.NewFakeClient([]runtime.Object{
-					utilstest.NewService(serviceName+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name}, nil),
+					utilstest.NewService(serviceName+"-kanary-"+name, namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name}, nil),
 				}...),
 				kd: kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
 			},
@@ -202,7 +202,7 @@ func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 					utilstest.NewService(serviceName, namespace, map[string]string{}, nil),
 				}...),
 				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: noneTraffic, Status: statusFailed}),
-				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
+				canaryDep: utilstest.NewDeployment(name+"-kanary-"+name, namespace, 1, nil),
 			},
 			wantStatus: statusFailed,
 			wantResult: reconcile.Result{},
@@ -213,7 +213,7 @@ func Test_kanaryServiceImpl_Cleanup(t *testing.T) {
 			args: args{
 				kclient: fake.NewFakeClient([]runtime.Object{
 					utilstest.NewService(serviceName, namespace, map[string]string{"app": "foo"}, nil),
-					utilstest.NewService(serviceName+"-kanary", namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name, "app": "foo"}, nil),
+					utilstest.NewService(serviceName+"-kanary-"+name, namespace, map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name, "app": "foo"}, nil),
 					utilstest.NewPod(name, namespace, "hash", &utilstest.NewPodOptions{Labels: map[string]string{kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name, "app": "foo", "version": "v2"}}),
 				}...),
 				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: serviceTraffic, Status: statusFailed}),
