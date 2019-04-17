@@ -85,7 +85,7 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	replicas := int32(3)
 	deploymentName := name
 	serviceName := name
-	canaryName := name + "-kanary"
+	canaryName := name + "-kanary-" + name
 
 	newService := newService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -159,7 +159,7 @@ func ManualValidationAfterDeadline(t *testing.T) {
 	replicas := int32(3)
 	deploymentName := name
 	serviceName := ""
-	canaryName := name + "-kanary"
+	canaryName := name + "-kanary-" + name
 
 	newDeployment := newDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
 	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -224,7 +224,7 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 	replicas := int32(3)
 	deploymentName := name
 	serviceName := name
-	canaryName := name + "-kanary"
+	canaryName := name + "-kanary-" + name
 
 	newService := newService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -322,7 +322,7 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 	replicas := int32(3)
 	deploymentName := name
 	serviceName := name
-	canaryName := name + "-kanary"
+	canaryName := name + "-kanary-" + name
 
 	newService := newService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -436,7 +436,7 @@ func HPAcreation(t *testing.T) {
 	replicas := int32(3)
 	deploymentName := name
 	serviceName := name
-	canaryName := name + "-kanary"
+	canaryName := name + "-kanary-" + name
 
 	newService := newService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
