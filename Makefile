@@ -36,13 +36,13 @@ clean:
 	rm -f ${ARTIFACT}
 
 validate:
-	gometalinter --vendor ./... -e zz_generated --deadline 9m -D gocyclo
+	${GOPATH}/bin/golangci-lint run ./...
 
 generate:
 	operator-sdk generate k8s
 
 install-tools:
-	BINDIR=${GOPATH}/bin ./hack/install-gometalinter.sh
+	./hack/golangci-lint.sh -b ${GOPATH}/bin v1.16.0
 	./hack/install-operator-sdk.sh
 
 .PHONY: build push clean test e2e validate install-tools
