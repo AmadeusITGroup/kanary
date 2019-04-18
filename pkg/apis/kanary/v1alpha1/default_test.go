@@ -49,6 +49,35 @@ func TestIsDefaultedKanaryDeployment(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "is defaulted",
+			kd: &KanaryDeployment{
+				Spec: KanaryDeploymentSpec{
+					Scale: KanaryDeploymentSpecScale{
+						Static: &KanaryDeploymentSpecScaleStatic{
+							Replicas: NewInt32(1),
+						},
+					},
+					Traffic: KanaryDeploymentSpecTraffic{
+						Source: ServiceKanaryDeploymentSpecTrafficSource,
+					},
+					Validation: KanaryDeploymentSpecValidation{
+						ValidationPeriod: &metav1.Duration{
+							Duration: 15 * time.Minute,
+						},
+						InitialDelay: &metav1.Duration{
+							Duration: 5 * time.Minute,
+						},
+						PromQL: &KanaryDeploymentSpecValidationPromQL{
+							PrometheusService:        "s",
+							PodNameKey:               "pod",
+							ContinuousValueDeviation: &ContinuousValueDeviation{},
+						},
+					},
+				},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -116,8 +145,8 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 							Duration: 5 * time.Minute,
 						},
 						PromQL: &KanaryDeploymentSpecValidationPromQL{
-							ServerURL: "prometheus",
-							Query:     "foo",
+							Query:                    "foo",
+							ContinuousValueDeviation: &ContinuousValueDeviation{},
 						},
 					},
 				},
@@ -140,8 +169,12 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 							Duration: 5 * time.Minute,
 						},
 						PromQL: &KanaryDeploymentSpecValidationPromQL{
-							ServerURL: "prometheus",
-							Query:     "foo",
+							PrometheusService: "prometheus:9090",
+							Query:             "foo",
+							PodNameKey:        "pod",
+							ContinuousValueDeviation: &ContinuousValueDeviation{
+								MaxDeviationPercent: NewFloat64(10),
+							},
 						},
 					},
 				},
