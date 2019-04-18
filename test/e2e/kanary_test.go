@@ -125,12 +125,15 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	}
 
 	// valid the kanaryDeployment
-	utils.UpdateKanaryDeploymentFunc(f, namespace, name, func(k *kanaryv1alpha1.KanaryDeployment) {
+	err = utils.UpdateKanaryDeploymentFunc(f, namespace, name, func(k *kanaryv1alpha1.KanaryDeployment) {
 		if k.Spec.Validation.Manual == nil {
 			k.Spec.Validation.Manual = &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{}
 		}
 		k.Spec.Validation.Manual.Status = kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus
 	}, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// test if the canary deployment have been updated
 	isUpdated := func(dep *appsv1.Deployment) (bool, error) {
@@ -413,7 +416,10 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 		}
 		return false, nil
 	}
-	utils.WaitForFuncOnKanaryDeployment(t, f.Client, namespace, name, checkInvalidStatus, retryInterval, 2*timeout)
+	err = utils.WaitForFuncOnKanaryDeployment(t, f.Client, namespace, name, checkInvalidStatus, retryInterval, 2*timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// check that pods are not anymore behind the service
 	check3Endpoints := func(eps *corev1.Endpoints) (bool, error) {
