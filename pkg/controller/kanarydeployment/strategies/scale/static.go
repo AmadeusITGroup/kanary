@@ -62,7 +62,7 @@ func (s *staticImpl) Clear(kclient client.Client, reqLogger logr.Logger, kd *kan
 	return status, reconcile.Result{}, nil
 }
 
-func updateDeploymentReplicas(kclient client.StatusWriter, reqLogger logr.Logger, dep *appsv1beta1.Deployment, replicas int32) (reconcile.Result, error) {
+func updateDeploymentReplicas(kclient client.Client, reqLogger logr.Logger, dep *appsv1beta1.Deployment, replicas int32) (reconcile.Result, error) {
 	updateDep := dep.DeepCopy()
 	updateDep.Spec.Replicas = &replicas
 	err := kclient.Update(context.TODO(), updateDep)

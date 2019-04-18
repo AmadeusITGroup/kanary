@@ -37,13 +37,6 @@ func RandStringRunes(n int) string {
 	return string(b)
 }
 
-var (
-	retryInterval        = time.Second * 5
-	timeout              = time.Second * 60
-	cleanupRetryInterval = time.Second * 1
-	cleanupTimeout       = time.Second * 5
-)
-
 const (
 	lineV0 = "while true; do echo 'v0'; sleep 5; done"
 	lineV1 = "while true; do echo 'v1'; sleep 5; done"
@@ -92,7 +85,7 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	replicas := int32(3)
 	deploymentName := name
 	serviceName := name
-	canaryName := name + "-kanary"
+	canaryName := name + "-kanary-" + name
 
 	newService := newService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -169,7 +162,7 @@ func ManualValidationAfterDeadline(t *testing.T) {
 	replicas := int32(3)
 	deploymentName := name
 	serviceName := ""
-	canaryName := name + "-kanary"
+	canaryName := name + "-kanary-" + name
 
 	newDeployment := newDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
 	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -234,7 +227,7 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 	replicas := int32(3)
 	deploymentName := name
 	serviceName := name
-	canaryName := name + "-kanary"
+	canaryName := name + "-kanary-" + name
 
 	newService := newService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -332,7 +325,7 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 	replicas := int32(3)
 	deploymentName := name
 	serviceName := name
-	canaryName := name + "-kanary"
+	canaryName := name + "-kanary-" + name
 
 	newService := newService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -449,7 +442,7 @@ func HPAcreation(t *testing.T) {
 	replicas := int32(3)
 	deploymentName := name
 	serviceName := name
-	canaryName := name + "-kanary"
+	canaryName := name + "-kanary-" + name
 
 	newService := newService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -515,24 +508,6 @@ func updateDeploymentFunc(f *framework.Framework, name, namespace string, update
 	}
 
 	return nil
-}
-
-func InitKanaryOperator(t *testing.T) (*framework.Framework, *framework.TestCtx, error) {
-	ctx := framework.NewTestCtx(t)
-	err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
-	if err != nil {
-		t.Fatalf("failed to initialize cluster resources: %v", err)
-	}
-	t.Log("Initialized cluster resources")
-	namespace, err := ctx.GetNamespace()
-	if err != nil {
-		t.Fatal(err)
-	}
-	// get global framework variables
-	f := framework.Global
-	// wait for kanary-operator to be ready
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "kanary", 1, retryInterval, timeout)
-	return f, ctx, err
 }
 
 func newDeployment(namespace, name, image, tag string, command []string, replicas int32) *appsv1.Deployment {
