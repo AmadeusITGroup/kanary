@@ -108,20 +108,3 @@ func (l *labelWatchImpl) Validation(kclient client.Client, reqLogger logr.Logger
 	}
 	return status, result, err
 }
-
-func getPods(kclient client.Client, reqLogger logr.Logger, KanaryDeploymentName, KanaryDeploymentNamespace string) ([]corev1.Pod, error) {
-	pods := &corev1.PodList{}
-	selector := labels.Set{
-		kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: KanaryDeploymentName,
-	}
-	listOptions := &client.ListOptions{
-		LabelSelector: selector.AsSelector(),
-		Namespace:     KanaryDeploymentNamespace,
-	}
-	err := kclient.List(context.TODO(), listOptions, pods)
-	if err != nil {
-		reqLogger.Error(err, "failed to list Pod from canary deployment")
-		return nil, fmt.Errorf("failed to list pod from canary deployment, err:%v", err)
-	}
-	return pods.Items, nil
-}
