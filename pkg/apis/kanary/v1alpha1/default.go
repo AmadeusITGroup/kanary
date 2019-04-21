@@ -101,7 +101,7 @@ func IsDefaultedKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation
 	}
 
 	if v.PromQL != nil {
-		if !IsDefaultedKanaryDeploymentSpecValidationPromQL(v.PromQL) {
+		if !isDefaultedKanaryDeploymentSpecValidationPromQL(v.PromQL) {
 			return false
 		}
 	}
@@ -109,33 +109,27 @@ func IsDefaultedKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation
 	return true
 }
 
-func IsDefaultedKanaryDeploymentSpecValidationPromQL(pq *KanaryDeploymentSpecValidationPromQL) bool {
+func isDefaultedKanaryDeploymentSpecValidationPromQL(pq *KanaryDeploymentSpecValidationPromQL) bool {
 	if pq.PrometheusService == "" {
 		return false
 	}
 	if pq.PodNameKey == "" {
 		return false
 	}
-	if pq.DiscreteValueOutOfList != nil && !IsDefaultedKanaryDeploymentSpecValidationPromQLDiscrete(pq.DiscreteValueOutOfList) {
+	if pq.DiscreteValueOutOfList != nil && !isDefaultedKanaryDeploymentSpecValidationPromQLDiscrete(pq.DiscreteValueOutOfList) {
 		return false
 	}
-	if pq.ContinuousValueDeviation != nil && !IsDefaultedKanaryDeploymentSpecValidationPromQLContinuous(pq.ContinuousValueDeviation) {
+	if pq.ContinuousValueDeviation != nil && !isDefaultedKanaryDeploymentSpecValidationPromQLContinuous(pq.ContinuousValueDeviation) {
 		return false
 	}
 	return true
 }
-func IsDefaultedKanaryDeploymentSpecValidationPromQLContinuous(c *ContinuousValueDeviation) bool {
-	if c.MaxDeviationPercent == nil {
-		return false
-	}
-	return true
+func isDefaultedKanaryDeploymentSpecValidationPromQLContinuous(c *ContinuousValueDeviation) bool {
+	return c.MaxDeviationPercent != nil
 }
 
-func IsDefaultedKanaryDeploymentSpecValidationPromQLDiscrete(d *DiscreteValueOutOfList) bool {
-	if d.TolerancePercent == nil {
-		return false
-	}
-	return true
+func isDefaultedKanaryDeploymentSpecValidationPromQLDiscrete(d *DiscreteValueOutOfList) bool {
+	return d.TolerancePercent != nil
 }
 
 // DefaultKanaryDeployment used to default a KanaryDeployment

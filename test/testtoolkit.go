@@ -217,7 +217,9 @@ var MapOfSequences = map[string]*TestStepSequence{}
 func NewTestPodLister(pods []*kapiv1.Pod) kv1.PodLister {
 	index := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	for _, p := range pods {
-		index.Add(p)
+		if err := index.Add(p); err != nil {
+			continue
+		}
 	}
 	return kv1.NewPodLister(index)
 }

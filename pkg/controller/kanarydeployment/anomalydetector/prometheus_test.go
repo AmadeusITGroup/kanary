@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-logr/logr"
 	promApi "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -19,7 +18,6 @@ func Test_promDiscreteValueOutOfListAnalyser_buildCounters(t *testing.T) {
 		config           configDiscreteValueOutOfList
 		PodNameKey       string
 		Query            string
-		logger           logr.Logger
 		valueCheckerFunc func(value string) (ok bool)
 	}
 	type args struct {
@@ -169,7 +167,6 @@ func Test_promDiscreteValueOutOfListAnalyser_doAnalysis(t *testing.T) {
 		config           configDiscreteValueOutOfList
 		PodNameKey       string
 		qAPI             promApi.API
-		logger           logr.Logger
 		valueCheckerFunc func(value string) (ok bool)
 	}
 	tests := []struct {

@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kapiv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 )
@@ -18,7 +17,6 @@ import (
 //CustomAnomalyDetector call an external service to get the list of faulty pods
 type CustomAnomalyDetector struct {
 	serviceURI string
-	selector   labels.Selector
 	logger     logr.Logger
 	client     *http.Client
 	decoder    runtime.Decoder

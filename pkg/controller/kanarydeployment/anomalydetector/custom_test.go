@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	kapiv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -88,7 +87,6 @@ func TestCustomAnomalyDetector_GetPodsOutOfBounds(t *testing.T) {
 
 	type fields struct {
 		serviceURI string
-		selector   labels.Selector
 	}
 	tests := []struct {
 		name       string
