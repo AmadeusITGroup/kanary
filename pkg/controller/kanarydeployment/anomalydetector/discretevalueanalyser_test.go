@@ -154,11 +154,13 @@ func TestDiscreteValueOutOfListAnalyser_GetPodsOutOfBounds(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &DiscreteValueOutOfListAnalyser{
-				TolerancePercent: tt.fields.TolerancePercent,
-				selector:         tt.fields.selector,
-				analyser:         tt.fields.analyser,
-				podLister:        tt.fields.podLister,
-				logger:           logf.Log,
+				ConfigSpecific: DiscreteValueOutOfListConfig{TolerancePercent: tt.fields.TolerancePercent},
+				ConfigAnalyser: Config{
+					Selector:  tt.fields.selector,
+					PodLister: tt.fields.podLister,
+					Logger:    logf.Log,
+				},
+				analyser: tt.fields.analyser,
 			}
 			got, err := d.GetPodsOutOfBounds()
 			if (err != nil) != tt.wantErr {

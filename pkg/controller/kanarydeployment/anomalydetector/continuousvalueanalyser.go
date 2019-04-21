@@ -5,10 +5,7 @@ import (
 	"math"
 
 	"github.com/amadeusitgroup/kanary/pkg/pod"
-	"github.com/go-logr/logr"
 	kapiv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	kv1 "k8s.io/client-go/listers/core/v1"
 )
 
 var _ AnomalyDetector = &ContinuousValueDeviationAnalyser{}
@@ -19,15 +16,17 @@ type continuousValueAnalyser interface {
 	doAnalysis() (deviationByPodName, error)
 }
 
+//ContinuousValueDeviationConfig Configuration for ContinuousValueDeviationAnalyser
+type ContinuousValueDeviationConfig struct {
+	MaxDeviationPercent float64
+}
+
 //ContinuousValueDeviationAnalyser anomalyDetector that check the deviation of a continous value compare to average
 type ContinuousValueDeviationAnalyser struct {
-	MaxDeviationPercent float64
+	ConfigSpecific ContinuousValueDeviationConfig
+	ConfigAnalyser Config
 
-	selector      labels.Selector
-	analyser      continuousValueAnalyser
-	podLister     kv1.PodNamespaceLister
-	logger        logr.Logger
-	exclusionFunc func(*kapiv1.Pod) (bool, error)
+	analyser continuousValueAnalyser
 }
 
 // func excludePodFromComparisonKubervisor(p *kapiv1.Pod) (bool, error) {
@@ -38,31 +37,9 @@ type ContinuousValueDeviationAnalyser struct {
 // 	return !traffic, nil
 // }
 
-//PodByName return 2 maps of pods
-// all pods indexed by their names
-// all pods to be excluded from comparison indexed by their names
-func PodByName(listOfPods []*kapiv1.Pod, exclusionFunc func(*kapiv1.Pod) (bool, error)) (allPods, excludeFromComparison map[string]*kapiv1.Pod, err error) {
-	podByName := map[string]*kapiv1.Pod{}
-	podWithNoTraffic := map[string]*kapiv1.Pod{}
-
-	for _, p := range listOfPods {
-		podByName[p.Name] = p
-		if exclusionFunc != nil {
-			exclude, err := exclusionFunc(p)
-			if err != nil {
-				return nil, nil, err
-			}
-			if exclude {
-				podWithNoTraffic[p.Name] = p
-			}
-		}
-	}
-	return podByName, podWithNoTraffic, nil
-}
-
 //GetPodsOutOfBounds implements interface AnomalyDetector
 func (d *ContinuousValueDeviationAnalyser) GetPodsOutOfBounds() ([]*kapiv1.Pod, error) {
-	listOfPods, err := d.podLister.List(d.selector)
+	listOfPods, err := d.ConfigAnalyser.PodLister.List(d.ConfigAnalyser.Selector)
 	if err != nil {
 		return nil, fmt.Errorf("can't list pods, error:%v", err)
 	}
@@ -70,7 +47,7 @@ func (d *ContinuousValueDeviationAnalyser) GetPodsOutOfBounds() ([]*kapiv1.Pod, 
 	if err != nil {
 		return nil, fmt.Errorf("can't purge not ready pods, error:%v", err)
 	}
-	podByName, podWithNoTraffic, err := PodByName(listOfPods, d.exclusionFunc)
+	podByName, podWithNoTraffic, err := PodByName(listOfPods, d.ConfigAnalyser.ExclusionFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -85,10 +62,10 @@ func (d *ContinuousValueDeviationAnalyser) GetPodsOutOfBounds() ([]*kapiv1.Pod, 
 		return result, nil
 	}
 
-	maxDeviation := d.MaxDeviationPercent / 100.0
+	maxDeviation := d.ConfigSpecific.MaxDeviationPercent / 100.0
 	if maxDeviation == 0.0 {
 		zeroErr := fmt.Errorf("maxDeviation=0 for continuous value analysis")
-		d.logger.Error(zeroErr, "")
+		d.ConfigAnalyser.Logger.Error(zeroErr, "")
 		return nil, zeroErr
 	}
 

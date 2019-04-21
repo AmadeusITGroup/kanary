@@ -15,10 +15,10 @@ import (
 func Test_promDiscreteValueOutOfListAnalyser_buildCounters(t *testing.T) {
 
 	type fields struct {
-		config           configDiscreteValueOutOfList
-		PodNameKey       string
-		Query            string
-		valueCheckerFunc func(value string) (ok bool)
+		config     DiscreteValueOutOfListConfig
+		PodNameKey string
+		Query      string
+		//valueCheckerFunc func(value string) (ok bool)
 	}
 	type args struct {
 		vector model.Vector
@@ -32,9 +32,8 @@ func Test_promDiscreteValueOutOfListAnalyser_buildCounters(t *testing.T) {
 		{
 			name: "empty",
 			fields: fields{
-				config:           configDiscreteValueOutOfList{Key: "code"},
-				PodNameKey:       "podname",
-				valueCheckerFunc: func(value string) bool { return ContainsString([]string{"200"}, value) },
+				config:     DiscreteValueOutOfListConfig{Key: "code", valueCheckerFunc: func(value string) bool { return ContainsString([]string{"200"}, value) }},
+				PodNameKey: "podname",
 			},
 			args: args{
 				vector: model.Vector{},
@@ -44,9 +43,8 @@ func Test_promDiscreteValueOutOfListAnalyser_buildCounters(t *testing.T) {
 		{
 			name: "one ok element; inclusion",
 			fields: fields{
-				config:           configDiscreteValueOutOfList{Key: "code", TolerancePercent: 50},
-				PodNameKey:       "podname",
-				valueCheckerFunc: func(value string) bool { return ContainsString([]string{"200"}, value) },
+				config:     DiscreteValueOutOfListConfig{Key: "code", TolerancePercent: 50, valueCheckerFunc: func(value string) bool { return ContainsString([]string{"200"}, value) }},
+				PodNameKey: "podname",
 			},
 			args: args{
 				vector: model.Vector{
@@ -61,9 +59,8 @@ func Test_promDiscreteValueOutOfListAnalyser_buildCounters(t *testing.T) {
 		{
 			name: "one ko element; inclusion",
 			fields: fields{
-				config:           configDiscreteValueOutOfList{Key: "code", TolerancePercent: 50},
-				PodNameKey:       "podname",
-				valueCheckerFunc: func(value string) bool { return ContainsString([]string{"200"}, value) },
+				config:     DiscreteValueOutOfListConfig{Key: "code", valueCheckerFunc: func(value string) bool { return ContainsString([]string{"200"}, value) }, TolerancePercent: 50},
+				PodNameKey: "podname",
 			},
 			args: args{
 				vector: model.Vector{
@@ -78,9 +75,8 @@ func Test_promDiscreteValueOutOfListAnalyser_buildCounters(t *testing.T) {
 		{
 			name: "one ok element; exclusion",
 			fields: fields{
-				config:           configDiscreteValueOutOfList{Key: "code", TolerancePercent: 50},
-				PodNameKey:       "podname",
-				valueCheckerFunc: func(value string) bool { return !ContainsString([]string{"500"}, value) },
+				config:     DiscreteValueOutOfListConfig{Key: "code", valueCheckerFunc: func(value string) bool { return !ContainsString([]string{"500"}, value) }, TolerancePercent: 50},
+				PodNameKey: "podname",
 			},
 			args: args{
 				vector: model.Vector{
@@ -95,9 +91,8 @@ func Test_promDiscreteValueOutOfListAnalyser_buildCounters(t *testing.T) {
 		{
 			name: "one ko element; exclusion",
 			fields: fields{
-				config:           configDiscreteValueOutOfList{Key: "code"},
-				PodNameKey:       "podname",
-				valueCheckerFunc: func(value string) bool { return !ContainsString([]string{"500"}, value) },
+				config:     DiscreteValueOutOfListConfig{Key: "code", valueCheckerFunc: func(value string) bool { return !ContainsString([]string{"500"}, value) }},
+				PodNameKey: "podname",
 			},
 			args: args{
 				vector: model.Vector{
@@ -112,9 +107,8 @@ func Test_promDiscreteValueOutOfListAnalyser_buildCounters(t *testing.T) {
 		{
 			name: "complex; inclusion",
 			fields: fields{
-				config:           configDiscreteValueOutOfList{Key: "code"},
-				PodNameKey:       "podname",
-				valueCheckerFunc: func(value string) bool { return ContainsString([]string{"200"}, value) },
+				config:     DiscreteValueOutOfListConfig{Key: "code", valueCheckerFunc: func(value string) bool { return ContainsString([]string{"200"}, value) }},
+				PodNameKey: "podname",
 			},
 			args: args{
 				vector: model.Vector{
@@ -150,10 +144,11 @@ func Test_promDiscreteValueOutOfListAnalyser_buildCounters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &promDiscreteValueOutOfListAnalyser{
-				config:           tt.fields.config,
-				PodNameKey:       tt.fields.PodNameKey,
-				logger:           logf.Log,
-				valueCheckerFunc: tt.fields.valueCheckerFunc,
+				config: tt.fields.config,
+				promConfig: ConfigPrometheusAnomalyDetector{
+					PodNameKey: tt.fields.PodNameKey,
+					logger:     logf.Log,
+				},
 			}
 			if got := p.buildCounters(tt.args.vector); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("promDiscreteValueOutOfListAnalyser.buildCounters() = %v, want %v", got, tt.want)
@@ -164,10 +159,9 @@ func Test_promDiscreteValueOutOfListAnalyser_buildCounters(t *testing.T) {
 
 func Test_promDiscreteValueOutOfListAnalyser_doAnalysis(t *testing.T) {
 	type fields struct {
-		config           configDiscreteValueOutOfList
-		PodNameKey       string
-		qAPI             promApi.API
-		valueCheckerFunc func(value string) (ok bool)
+		config     DiscreteValueOutOfListConfig
+		PodNameKey string
+		qAPI       promApi.API
 	}
 	tests := []struct {
 		name    string
@@ -178,7 +172,7 @@ func Test_promDiscreteValueOutOfListAnalyser_doAnalysis(t *testing.T) {
 		{
 			name: "caseErrorQuery",
 			fields: fields{
-				config: configDiscreteValueOutOfList{},
+				config: DiscreteValueOutOfListConfig{},
 				qAPI: &testPrometheusAPI{
 					err: fmt.Errorf("A prom Error"),
 				},
@@ -189,7 +183,7 @@ func Test_promDiscreteValueOutOfListAnalyser_doAnalysis(t *testing.T) {
 		{
 			name: "okEmpty",
 			fields: fields{
-				config: configDiscreteValueOutOfList{
+				config: DiscreteValueOutOfListConfig{
 					Key: "code",
 				},
 				PodNameKey: "pod",
@@ -204,7 +198,7 @@ func Test_promDiscreteValueOutOfListAnalyser_doAnalysis(t *testing.T) {
 		{
 			name: "badCast",
 			fields: fields{
-				config:     configDiscreteValueOutOfList{},
+				config:     DiscreteValueOutOfListConfig{},
 				PodNameKey: "pod",
 				qAPI: &testPrometheusAPI{
 					err:   nil,
@@ -218,11 +212,12 @@ func Test_promDiscreteValueOutOfListAnalyser_doAnalysis(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &promDiscreteValueOutOfListAnalyser{
-				config:           tt.fields.config,
-				PodNameKey:       tt.fields.PodNameKey,
-				queyrAPI:         tt.fields.qAPI,
-				logger:           logf.Log,
-				valueCheckerFunc: tt.fields.valueCheckerFunc,
+				config: tt.fields.config,
+				promConfig: ConfigPrometheusAnomalyDetector{
+					PodNameKey: tt.fields.PodNameKey,
+					queryAPI:   tt.fields.qAPI,
+					logger:     logf.Log,
+				},
 			}
 			got, err := p.doAnalysis()
 			if (err != nil) != tt.wantErr {
@@ -299,7 +294,7 @@ func (tAPI *testPrometheusAPI) Targets(ctx context.Context) (promApi.TargetsResu
 }
 func Test_promContinuousValueDeviationAnalyser_doAnalysis(t *testing.T) {
 	type fields struct {
-		config     configContinuousValueDeviation
+		config     ContinuousValueDeviationConfig
 		PodNameKey string
 		qAPI       promApi.API
 	}
@@ -312,7 +307,7 @@ func Test_promContinuousValueDeviationAnalyser_doAnalysis(t *testing.T) {
 		{
 			name: "caseErrorQuery",
 			fields: fields{
-				config: configContinuousValueDeviation{},
+				config: ContinuousValueDeviationConfig{},
 				qAPI: &testPrometheusAPI{
 					err: fmt.Errorf("A prom Error"),
 				},
@@ -323,7 +318,7 @@ func Test_promContinuousValueDeviationAnalyser_doAnalysis(t *testing.T) {
 		{
 			name: "podA",
 			fields: fields{
-				config:     configContinuousValueDeviation{},
+				config:     ContinuousValueDeviationConfig{},
 				PodNameKey: "pod",
 				qAPI: &testPrometheusAPI{
 					err: nil,
@@ -341,7 +336,7 @@ func Test_promContinuousValueDeviationAnalyser_doAnalysis(t *testing.T) {
 		{
 			name: "badCast",
 			fields: fields{
-				config:     configContinuousValueDeviation{},
+				config:     ContinuousValueDeviationConfig{},
 				PodNameKey: "pod",
 				qAPI: &testPrometheusAPI{
 					err:   nil,
@@ -355,10 +350,12 @@ func Test_promContinuousValueDeviationAnalyser_doAnalysis(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &promContinuousValueDeviationAnalyser{
-				config:     tt.fields.config,
-				PodNameKey: tt.fields.PodNameKey,
-				queryAPI:   tt.fields.qAPI,
-				logger:     logf.Log,
+				config: tt.fields.config,
+				promConfig: ConfigPrometheusAnomalyDetector{
+					PodNameKey: tt.fields.PodNameKey,
+					queryAPI:   tt.fields.qAPI,
+					logger:     logf.Log,
+				},
 			}
 			got, err := p.doAnalysis()
 			if (err != nil) != tt.wantErr {

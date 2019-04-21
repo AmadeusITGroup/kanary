@@ -12,10 +12,10 @@ type AnomalyDetector interface {
 	GetPodsOutOfBounds() ([]*kapiv1.Pod, error)
 }
 
-//Config parameters required for the creation of an AnomalyDetector
+//Config generic part of the configuration for anomalyDetector
 type Config struct {
-	//BreakerStrategyConfig api.BreakerStrategy
-	Selector  labels.Selector
-	PodLister kv1.PodNamespaceLister
-	Logger    logr.Logger
+	Selector      labels.Selector
+	PodLister     kv1.PodNamespaceLister
+	Logger        logr.Logger
+	ExclusionFunc func(*kapiv1.Pod) (bool, error)
 }

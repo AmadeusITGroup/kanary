@@ -100,11 +100,13 @@ func TestContinuousValueDeviationAnalyser_GetPodsOutOfBounds(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &ContinuousValueDeviationAnalyser{
-				MaxDeviationPercent: tt.fields.MaxDeviationPercent,
-				selector:            tt.fields.selector,
-				analyser:            tt.fields.analyser,
-				podLister:           tt.fields.podLister,
-				logger:              logf.Log,
+				ConfigSpecific: ContinuousValueDeviationConfig{MaxDeviationPercent: tt.fields.MaxDeviationPercent},
+				ConfigAnalyser: Config{
+					Selector:  tt.fields.selector,
+					PodLister: tt.fields.podLister,
+					Logger:    logf.Log,
+				},
+				analyser: tt.fields.analyser,
 			}
 			got, err := d.GetPodsOutOfBounds()
 			if (err != nil) != tt.wantErr {
