@@ -99,7 +99,37 @@ func IsDefaultedKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation
 			return false
 		}
 	}
+
+	if v.PromQL != nil {
+		if !isDefaultedKanaryDeploymentSpecValidationPromQL(v.PromQL) {
+			return false
+		}
+	}
+
 	return true
+}
+
+func isDefaultedKanaryDeploymentSpecValidationPromQL(pq *KanaryDeploymentSpecValidationPromQL) bool {
+	if pq.PrometheusService == "" {
+		return false
+	}
+	if pq.PodNameKey == "" {
+		return false
+	}
+	if pq.DiscreteValueOutOfList != nil && !isDefaultedKanaryDeploymentSpecValidationPromQLDiscrete(pq.DiscreteValueOutOfList) {
+		return false
+	}
+	if pq.ContinuousValueDeviation != nil && !isDefaultedKanaryDeploymentSpecValidationPromQLContinuous(pq.ContinuousValueDeviation) {
+		return false
+	}
+	return true
+}
+func isDefaultedKanaryDeploymentSpecValidationPromQLContinuous(c *ContinuousValueDeviation) bool {
+	return c.MaxDeviationPercent != nil
+}
+
+func isDefaultedKanaryDeploymentSpecValidationPromQLDiscrete(d *DiscreteValueOutOfList) bool {
+	return d.TolerancePercent != nil
 }
 
 // DefaultKanaryDeployment used to default a KanaryDeployment
@@ -194,8 +224,36 @@ func defaultKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation) {
 			v.Manual.StatusAfterDealine = NoneKanaryDeploymentSpecValidationManualDeadineStatus
 		}
 	}
-}
+	if v.PromQL != nil {
+		defaultKanaryDeploymentSpecValidationPromQL(v.PromQL)
 
+	}
+}
+func defaultKanaryDeploymentSpecValidationPromQL(pq *KanaryDeploymentSpecValidationPromQL) {
+	if pq.PrometheusService == "" {
+		pq.PrometheusService = "prometheus:9090"
+	}
+	if pq.PodNameKey == "" {
+		pq.PodNameKey = "pod"
+	}
+	if pq.ContinuousValueDeviation != nil {
+		defaultKanaryDeploymentSpecValidationPromQLContinuous(pq.ContinuousValueDeviation)
+	}
+	if pq.DiscreteValueOutOfList != nil {
+		defaultKanaryDeploymentSpecValidationPromQLDiscreteValueOutOfList(pq.DiscreteValueOutOfList)
+	}
+}
+func defaultKanaryDeploymentSpecValidationPromQLContinuous(c *ContinuousValueDeviation) {
+	if c.MaxDeviationPercent == nil {
+		c.MaxDeviationPercent = NewFloat64(10)
+	}
+
+}
+func defaultKanaryDeploymentSpecValidationPromQLDiscreteValueOutOfList(d *DiscreteValueOutOfList) {
+	if d.TolerancePercent == nil {
+		d.TolerancePercent = NewUInt(0)
+	}
+}
 func defaultKanaryDeploymentSpecScaleValidationManual(v *KanaryDeploymentSpecValidation) {
 	v.Manual = &KanaryDeploymentSpecValidationManual{
 		StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
@@ -205,4 +263,14 @@ func defaultKanaryDeploymentSpecScaleValidationManual(v *KanaryDeploymentSpecVal
 // NewInt32 returns new int32 pointer instance
 func NewInt32(i int32) *int32 {
 	return &i
+}
+
+// NewUInt returns new uint pointer instance
+func NewUInt(i uint) *uint {
+	return &i
+}
+
+// NewFloat64 return a pointer to a float64
+func NewFloat64(val float64) *float64 {
+	return &val
 }

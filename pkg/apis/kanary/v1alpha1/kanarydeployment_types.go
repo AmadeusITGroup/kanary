@@ -180,11 +180,33 @@ type KanaryDeploymentSpecValidationLabelWatch struct {
 
 // KanaryDeploymentSpecValidationPromQL defines the promQL validation configuration
 type KanaryDeploymentSpecValidationPromQL struct {
-	// Query defines the promQL query that will inform if the canary validation is successful or not.
-	// the query should return "True" or "False"
-	Query string `json:"query,omitempty"`
-	// ServerURL defines the prometheus server URL
-	ServerURL string `json:"serverURL,omitempty"`
+	PrometheusService string `json:"prometheusService"`
+	Query             string `json:"query"` //The promQL query
+	// note the AND close that prevent to return record when there is less that 70 records over the floating time window of 1m
+	PodNameKey string `json:"podNamekey"` // Key to access the podName
+
+	DiscreteValueOutOfList   *DiscreteValueOutOfList   `json:"discreteValueOutOfList,omitempty"`
+	ContinuousValueDeviation *ContinuousValueDeviation `json:"continuousValueDeviation,omitempty"`
+}
+
+// ContinuousValueDeviation detect anomaly when the average value for a pod is deviating from the average for the fleet of pods. If a pods does not register enough event it should not be returned by the PromQL
+// The promQL should return value that are grouped by:
+// 1- the podname
+type ContinuousValueDeviation struct {
+	//PromQL example, deviation compare to global average: (rate(solution_price_sum[1m])/rate(solution_price_count[1m]) and delta(solution_price_count[1m])>70) / scalar(sum(rate(solution_price_sum[1m]))/sum(rate(solution_price_count[1m])))
+	MaxDeviationPercent *float64 `json:"maxDeviationPercent"` // MaxDeviationPercent maxDeviation computation based on % of the mean
+}
+
+// DiscreteValueOutOfList detect anomaly when the a value is not in the list with a ratio that exceed the tolerance
+// The promQL should return counter that are grouped by:
+// 1-the key of the value to monitor
+// 2-the podname
+type DiscreteValueOutOfList struct {
+	//PromQL example: sum(delta(ms_rpc_count{job=\"kubernetes-pods\",run=\"foo\"}[10s])) by (code,kubernetes_pod_name)
+	Key              string   `json:"key"`                  // Key for the metrics. For the previous example it will be "code"
+	GoodValues       []string `json:"goodValues,omitempty"` // Good Values ["200","201"]. If empty means that BadValues should be used to do exclusion instead of inclusion.
+	BadValues        []string `json:"badValues,omitempty"`  // Bad Values ["500","404"].
+	TolerancePercent *uint    `json:"tolerance"`            // % of Bad values tolerated until the pod is considered out of SLA
 }
 
 // KanaryDeploymentStatus defines the observed state of KanaryDeployment

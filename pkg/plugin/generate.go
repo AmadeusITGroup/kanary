@@ -269,8 +269,8 @@ func (o *generateOptions) Run() error {
 		}
 	} else if o.userValidationPromQLQuery != "" {
 		newKanaryDeployment.Spec.Validation.PromQL = &v1alpha1.KanaryDeploymentSpecValidationPromQL{
-			Query:     o.userValidationPromQLQuery,
-			ServerURL: o.userValidationPromQLServer,
+			Query:             o.userValidationPromQLQuery,
+			PrometheusService: o.userValidationPromQLServer,
 		}
 	}
 
