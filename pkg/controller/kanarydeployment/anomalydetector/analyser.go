@@ -19,3 +19,25 @@ type Config struct {
 	Logger        logr.Logger
 	ExclusionFunc func(*kapiv1.Pod) (bool, error)
 }
+
+var _ AnomalyDetector = &Fake{}
+
+//Fake should be used in test to mock an AnomalyDetector
+type Fake struct {
+	Pods []*kapiv1.Pod
+	Err  error
+}
+
+//GetPodsOutOfBounds implements AnomalyDetector
+func (f *Fake) GetPodsOutOfBounds() ([]*kapiv1.Pod, error) {
+	return f.Pods, f.Err
+}
+
+//FakeFactory create a fake anomaly detector factory that return a Fake anomaly detector
+func FakeFactory(p []*kapiv1.Pod, e error) Factory {
+	return func(cfg FactoryConfig) (AnomalyDetector, error) {
+		return &Fake{
+			Pods: p, Err: e,
+		}, nil
+	}
+}

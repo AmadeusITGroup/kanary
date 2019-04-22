@@ -60,9 +60,9 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 		validationImpl = validation.NewManual(&spec.Validation)
 	} else if spec.Validation.LabelWatch != nil {
 		validationImpl = validation.NewLabelWatch(&spec.Validation)
-	} /* else if spec.Validation.PromQL != nil {
-		// TODO implement NewPromQL()
-	}*/
+	} else if spec.Validation.PromQL != nil {
+		validationImpl = validation.NewPromql(&spec.Validation)
+	}
 
 	return &strategy{
 		scale:               scaleImpls,
