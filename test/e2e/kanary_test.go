@@ -61,11 +61,12 @@ func TestKanary(t *testing.T) {
 
 	// run subtests
 	t.Run("kanary-group", func(t *testing.T) {
-		t.Run("Init-Kanary", InitKanaryDeploymentInstance)
-		t.Run("Manual-Validation", ManualValidationAfterDeadline)
-		t.Run("Manual-Invalidation", ManualInvalidationAfterDeadline)
-		t.Run("DepLabelWatch-Invalid", InvalidationWithDeploymentLabels)
-		t.Run("HPAcreation", HPAcreation)
+		t.Run("PromqlInvalidation", PromqlInvalidation)
+		// t.Run("Init-Kanary", InitKanaryDeploymentInstance)
+		// t.Run("Manual-Validation", ManualValidationAfterDeadline)
+		// t.Run("Manual-Invalidation", ManualInvalidationAfterDeadline)
+		// t.Run("DepLabelWatch-Invalid", InvalidationWithDeploymentLabels)
+		// t.Run("HPAcreation", HPAcreation)
 	})
 }
 
@@ -204,6 +205,7 @@ func ManualValidationAfterDeadline(t *testing.T) {
 		}
 		return false, nil
 	}
+
 	// check the update on the master deployment
 	err = utils.WaitForFuncOnDeployment(t, f.KubeClient, namespace, name, isUpdated, retryInterval, 2*timeout)
 	if err != nil {
@@ -538,7 +540,7 @@ func newDeploymentSpec(name, image, tag string, command []string, replicas int32
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  "busybox-container",
+						Name:  "container1",
 						Image: fmt.Sprintf("%s:%s", image, tag),
 						Ports: []corev1.ContainerPort{
 							{ContainerPort: 80},

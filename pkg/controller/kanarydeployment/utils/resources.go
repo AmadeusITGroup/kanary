@@ -119,8 +119,8 @@ func NewCanaryDeploymentFromKanaryDeploymentTemplate(kd *kanaryv1alpha1.KanaryDe
 	// Overwrite the Pods labels and the Deployment spec selector
 	dep.Spec.Template.Labels = map[string]string{
 		kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: kd.Name,
+		kanaryv1alpha1.KanaryDeploymentActivateLabelKey:   kanaryv1alpha1.KanaryDeploymentLabelValueTrue,
 	}
-	dep.Spec.Template.Labels[kanaryv1alpha1.KanaryDeploymentActivateLabelKey] = kanaryv1alpha1.KanaryDeploymentLabelValueTrue
 	dep.Spec.Selector.MatchLabels = dep.Spec.Template.Labels
 
 	dep.Spec.Replicas = GetCanaryReplicasValue(kd)
@@ -165,6 +165,14 @@ func GetLabelsForKanaryDeploymentd(name string) map[string]string {
 	return map[string]string{
 		kanaryv1alpha1.KanaryDeploymentIsKanaryLabelKey:   kanaryv1alpha1.KanaryDeploymentLabelValueTrue,
 		kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: name,
+	}
+}
+
+// GetLabelsForKanaryPod return labels of a canary pod associated to a kanarydeployment.
+func GetLabelsForKanaryPod(kdname string) map[string]string {
+	return map[string]string{
+		kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: kdname,
+		kanaryv1alpha1.KanaryDeploymentActivateLabelKey:   kanaryv1alpha1.KanaryDeploymentLabelValueTrue,
 	}
 }
 
