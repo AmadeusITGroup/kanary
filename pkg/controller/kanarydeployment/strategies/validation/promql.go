@@ -160,7 +160,7 @@ func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 	}
 
 	if !validationStatus {
-		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, "KanaryDeployment failed, labelWatch has detected invalidation labels")
+		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, "KanaryDeployment failed, promQL query reported an issue with one of the kanary pod")
 	}
 	return status, result, err
 }

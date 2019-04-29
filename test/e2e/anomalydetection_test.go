@@ -6,10 +6,13 @@ import (
 	"math/rand"
 	"net"
 	"net/url"
+	"regexp"
 	"testing"
 	"time"
 
+	"github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	utilsctrl "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 	utilskanary "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 	"github.com/amadeusitgroup/kanary/test/e2e/utils"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
@@ -18,6 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/push"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -32,20 +36,27 @@ type PromTestHelper struct {
 	f         *framework.Framework
 	namespace string
 	urlPush   string
-	gauge     *prometheus.GaugeVec
+	//gauge     *prometheus.GaugeVec
+	histogram *prometheus.HistogramVec
+	jobName   string
 }
 
 func RandValueIn(base int, delta int) float64 {
 	return float64(base+rand.Intn(delta)) - float64(delta/2)
 }
 
-func NewPromTestHelper(t *testing.T, ctx *framework.TestCtx, f *framework.Framework, namespace string) *PromTestHelper {
+func NewPromTestHelper(t *testing.T, ctx *framework.TestCtx, f *framework.Framework, namespace string, jobName string) *PromTestHelper {
 	url, _ := url.Parse(f.KubeConfig.Host)
 	minikubeIP, _, _ := net.SplitHostPort(url.Host)
-	var sampleGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	// var sampleGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	// 	Name: "mymetric",
+	// 	Help: "mymetric for e2e test",
+	// }, []string{"pod"})
+
+	var sampleHisto = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "mymetric",
 		Help: "mymetric for e2e test",
-	}, []string{"pod"})
+	}, []string{"pod", sanitizeLabel(v1alpha1.KanaryDeploymentActivateLabelKey)})
 
 	return &PromTestHelper{
 		t:         t,
@@ -53,7 +64,9 @@ func NewPromTestHelper(t *testing.T, ctx *framework.TestCtx, f *framework.Framew
 		f:         f,
 		namespace: namespace,
 		urlPush:   "http://" + minikubeIP + fmt.Sprintf(":%d", prometheusPushNodePort),
-		gauge:     sampleGauge,
+		//gauge:     sampleGauge,
+		histogram: sampleHisto,
+		jobName:   jobName,
 	}
 }
 
@@ -132,8 +145,12 @@ func (p *PromTestHelper) DeployProm() {
 	promService.Spec.Type = corev1.ServiceTypeNodePort
 	promService.Spec.Ports = []corev1.ServicePort{
 		{
-			Name:     "prom",
-			Port:     9090,
+			Name: "prom",
+			Port: 80,
+			TargetPort: intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: 9090,
+			},
 			NodePort: prometheusNodePort,
 		},
 		{
@@ -170,39 +187,34 @@ func (p *PromTestHelper) DeployProm() {
 	}
 }
 
-func (p *PromTestHelper) PushDataToProm() {
-	completionTime := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "db_backup_last_completion_timestamp_seconds",
-		Help: "The timestamp of the last successful completion of a DB backup.",
-	})
-	completionTime.SetToCurrentTime()
-	if err := push.New(p.urlPush, "db_backup").
-		Collector(completionTime).
-		Grouping("db", "customers").
-		Push(); err != nil {
-		fmt.Println("Could not push completion time to Pushgateway:", err)
-		p.t.FailNow()
-	}
-}
+func (p *PromTestHelper) GenerateMetrics(pods corev1.PodList, okMetrics bool, isCanaryPod bool) {
 
-func (p *PromTestHelper) GenerateMetrics(pods corev1.PodList, okMetrics bool) {
+	canaryLabel := v1alpha1.KanaryDeploymentLabelValueTrue
+	if !isCanaryPod {
+		canaryLabel = v1alpha1.KanaryDeploymentLabelValueFalse
+	}
 
 	ticker := time.NewTicker(time.Second)
 	go func() {
 		for range ticker.C {
 			for _, pod := range pods.Items {
 				if okMetrics {
-					p.gauge.WithLabelValues(pod.Name).Set(RandValueIn(100, 10))
+					p.histogram.WithLabelValues(pod.Name, canaryLabel).Observe(RandValueIn(100, 10))
 				} else {
-					p.gauge.WithLabelValues(pod.Name).Set(RandValueIn(42, 5))
+					p.histogram.WithLabelValues(pod.Name, canaryLabel).Observe(RandValueIn(42, 5))
 				}
 			}
-			if err := push.New(p.urlPush, "db_backup").Collector(p.gauge).Push(); err != nil {
+			if err := push.New(p.urlPush, p.jobName).Collector(p.histogram).Push(); err != nil {
 				fmt.Println("Could not push completion time to Pushgateway:", err)
 				p.t.FailNow()
 			}
 		}
 	}()
+}
+
+func sanitizeLabel(label string) string {
+	r := regexp.MustCompile("[^a-zA-Z0-9_]")
+	return r.ReplaceAllString(label, "_")
 }
 
 func PromqlInvalidation(t *testing.T) {
@@ -223,8 +235,14 @@ func PromqlInvalidation(t *testing.T) {
 	serviceName := name
 	canaryName := name + "-kanary-" + name
 
-	promHelper := NewPromTestHelper(t, ctx, f, namespace)
+	promHelper := NewPromTestHelper(t, ctx, f, namespace, "Test_PromQlInvalidation")
 	promHelper.DeployProm()
+
+	newService := newService(namespace, serviceName, map[string]string{"app": name})
+	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	newDep := newDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
 	err = f.Client.Create(goctx.TODO(), newDep, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
@@ -239,7 +257,7 @@ func PromqlInvalidation(t *testing.T) {
 
 	//Generate good metrics
 	{
-		t.Log("Start metric generation for OK pods")
+		t.Log("Start metric generation for OK pods of normal deployment")
 		pods, _ := f.KubeClient.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: "app=" + name})
 		if pods == nil {
 			t.Fatalf("Can't retrieve pods")
@@ -247,16 +265,20 @@ func PromqlInvalidation(t *testing.T) {
 		if len(pods.Items) != int(replicas) {
 			t.Fatalf("Bad Pod count")
 		}
-		promHelper.GenerateMetrics(*pods, true)
+		promHelper.GenerateMetrics(*pods, true, false)
 	}
 
 	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
 		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
 		PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{
 			PrometheusService: "prometheus",
-			// TODO write the QUERY
+			Query:             "(rate(mymetric_sum[10s])/rate(mymetric_count[10s]) and delta(mymetric_count[10s])>3)/scalar(sum(rate(mymetric_sum{kanary_k8s_io_canary_pod=\"false\"}[10s]))/sum(rate(mymetric_count{kanary_k8s_io_canary_pod=\"false\"}[10s])))",
+			ContinuousValueDeviation: &kanaryv1alpha1.ContinuousValueDeviation{
+				MaxDeviationPercent: v1alpha1.NewFloat64(33),
+			},
 		},
 	}
+
 	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, validationConfig)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
@@ -280,10 +302,43 @@ func PromqlInvalidation(t *testing.T) {
 		if len(pods.Items) != 1 {
 			t.Fatalf("Bad Pod count expecting 1 got %d", len(pods.Items))
 		}
-		promHelper.GenerateMetrics(*pods, false)
+		promHelper.GenerateMetrics(*pods, false, true)
 	}
-	time.Sleep(60 * time.Second)
-	t.FailNow() //Test To be continued
+
+	checkInvalidStatus := func(kd *kanaryv1alpha1.KanaryDeployment) (bool, error) {
+		if utilsctrl.IsKanaryDeploymentFailed(&kd.Status) {
+			return true, nil
+		}
+		return false, nil
+	}
+	err = utils.WaitForFuncOnKanaryDeployment(t, f.Client, namespace, name, checkInvalidStatus, retryInterval, 2*timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// wait that the canary pod is behind the service
+	checkEndpoints := func(eps *corev1.Endpoints, wantedPod int) (bool, error) {
+		nbPod := 0
+		for _, sub := range eps.Subsets {
+			nbPod += len(sub.Addresses)
+		}
+		if wantedPod != nbPod {
+			t.Logf("checkEndpoints %d-%d", wantedPod, nbPod)
+			return false, nil
+		}
+		return true, nil
+	}
+
+	// check that pods are not anymore behind the service
+	check3Endpoints := func(eps *corev1.Endpoints) (bool, error) {
+		return checkEndpoints(eps, 3)
+	}
+
+	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check3Endpoints, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 
 func LabelsAsSelectorString(lbs map[string]string) string {

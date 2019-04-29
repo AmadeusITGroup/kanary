@@ -62,11 +62,11 @@ func TestKanary(t *testing.T) {
 	// run subtests
 	t.Run("kanary-group", func(t *testing.T) {
 		t.Run("PromqlInvalidation", PromqlInvalidation)
-		// t.Run("Init-Kanary", InitKanaryDeploymentInstance)
-		// t.Run("Manual-Validation", ManualValidationAfterDeadline)
-		// t.Run("Manual-Invalidation", ManualInvalidationAfterDeadline)
-		// t.Run("DepLabelWatch-Invalid", InvalidationWithDeploymentLabels)
-		// t.Run("HPAcreation", HPAcreation)
+		t.Run("Init-Kanary", InitKanaryDeploymentInstance)
+		t.Run("Manual-Validation", ManualValidationAfterDeadline)
+		t.Run("Manual-Invalidation", ManualInvalidationAfterDeadline)
+		t.Run("DepLabelWatch-Invalid", InvalidationWithDeploymentLabels)
+		t.Run("HPAcreation", HPAcreation)
 	})
 }
 
