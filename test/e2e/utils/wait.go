@@ -39,8 +39,10 @@ func WaitForFuncOnDeployment(t *testing.T, kubeclient kubernetes.Interface, name
 	})
 }
 
+type EndpointCheckFunc func(*corev1.Endpoints) (bool, error)
+
 // WaitForFuncOnEndpoints used to wait a valid condition on Endpoints
-func WaitForFuncOnEndpoints(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, f func(*corev1.Endpoints) (bool, error), retryInterval, timeout time.Duration) error {
+func WaitForFuncOnEndpoints(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, f EndpointCheckFunc, retryInterval, timeout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		eps, err := kubeclient.CoreV1().Endpoints(namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
@@ -96,4 +98,25 @@ func WaitForFuncOnHPA(t *testing.T, kubeclient kubernetes.Interface, namespace, 
 		t.Logf("Waiting for condition function to be true ok for %s HorizontalPodAutoscaler (%t/%v)\n", name, ok, err)
 		return ok, err
 	})
+}
+
+//CheckEndpoints check if the count of endpoint is the expexted one
+func CheckEndpoints(t *testing.T, eps *corev1.Endpoints, wantedPod int) (bool, error) {
+	nbPod := 0
+	for _, sub := range eps.Subsets {
+		nbPod += len(sub.Addresses)
+	}
+	if wantedPod != nbPod {
+		t.Logf("checkEndpoints %d-%d", wantedPod, nbPod)
+		return false, nil
+	}
+	return true, nil
+}
+
+//WaitForEndpointsCount wait for the endpoint to reach a given count
+func WaitForEndpointsCount(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, endpointCount int, retryInterval, timeout time.Duration) error {
+	f := func(eps *corev1.Endpoints) (bool, error) {
+		return CheckEndpoints(t, eps, endpointCount)
+	}
+	return WaitForFuncOnEndpoints(t, kubeclient, namespace, name, f, retryInterval, timeout)
 }

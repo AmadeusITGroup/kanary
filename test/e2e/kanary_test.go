@@ -270,22 +270,7 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 	}
 
 	// wait that the canary pod is behind the service
-	checkEndpoints := func(eps *corev1.Endpoints, wantedPod int) (bool, error) {
-		nbPod := 0
-		for _, sub := range eps.Subsets {
-			nbPod += len(sub.Addresses)
-		}
-		if wantedPod != nbPod {
-			return false, nil
-		}
-		return true, nil
-	}
-
-	check4Endpoints := func(eps *corev1.Endpoints) (bool, error) {
-		return checkEndpoints(eps, 4)
-	}
-
-	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check4Endpoints, retryInterval, timeout)
+	err = utils.WaitForEndpointsCount(t, f.KubeClient, namespace, serviceName, 4, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,10 +286,7 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 		t.Fatal(err)
 	}
 	// check that pods are not anymore behind the service
-	check3Endpoints := func(eps *corev1.Endpoints) (bool, error) {
-		return checkEndpoints(eps, 3)
-	}
-	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check3Endpoints, retryInterval, timeout)
+	err = utils.WaitForEndpointsCount(t, f.KubeClient, namespace, serviceName, 3, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,24 +351,7 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// wait that the canary pod is behind the service
-	checkEndpoints := func(eps *corev1.Endpoints, wantedPod int) (bool, error) {
-		nbPod := 0
-		for _, sub := range eps.Subsets {
-			nbPod += len(sub.Addresses)
-		}
-		if wantedPod != nbPod {
-			t.Logf("checkEndpoints %d-%d", wantedPod, nbPod)
-			return false, nil
-		}
-		return true, nil
-	}
-
-	check4Endpoints := func(eps *corev1.Endpoints) (bool, error) {
-		return checkEndpoints(eps, 4)
-	}
-
-	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check4Endpoints, retryInterval, timeout)
+	err = utils.WaitForEndpointsCount(t, f.KubeClient, namespace, serviceName, 4, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -416,16 +381,10 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// check that pods are not anymore behind the service
-	check3Endpoints := func(eps *corev1.Endpoints) (bool, error) {
-		return checkEndpoints(eps, 3)
-	}
-
-	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check3Endpoints, retryInterval, timeout)
+	err = utils.WaitForEndpointsCount(t, f.KubeClient, namespace, serviceName, 3, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func HPAcreation(t *testing.T) {

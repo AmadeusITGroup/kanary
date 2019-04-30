@@ -36,7 +36,6 @@ type PromTestHelper struct {
 	f         *framework.Framework
 	namespace string
 	urlPush   string
-	//gauge     *prometheus.GaugeVec
 	histogram *prometheus.HistogramVec
 	jobName   string
 }
@@ -48,10 +47,6 @@ func RandValueIn(base int, delta int) float64 {
 func NewPromTestHelper(t *testing.T, ctx *framework.TestCtx, f *framework.Framework, namespace string, jobName string) *PromTestHelper {
 	url, _ := url.Parse(f.KubeConfig.Host)
 	minikubeIP, _, _ := net.SplitHostPort(url.Host)
-	// var sampleGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-	// 	Name: "mymetric",
-	// 	Help: "mymetric for e2e test",
-	// }, []string{"pod"})
 
 	var sampleHisto = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "mymetric",
@@ -64,7 +59,6 @@ func NewPromTestHelper(t *testing.T, ctx *framework.TestCtx, f *framework.Framew
 		f:         f,
 		namespace: namespace,
 		urlPush:   "http://" + minikubeIP + fmt.Sprintf(":%d", prometheusPushNodePort),
-		//gauge:     sampleGauge,
 		histogram: sampleHisto,
 		jobName:   jobName,
 	}
@@ -165,23 +159,7 @@ func (p *PromTestHelper) DeployProm() {
 		p.t.Fatal(err)
 	}
 
-	// wait that the canary pod is behind the service
-	checkEndpoints := func(eps *corev1.Endpoints, wantedPod int) (bool, error) {
-		nbPod := 0
-		for _, sub := range eps.Subsets {
-			nbPod += len(sub.Addresses)
-		}
-		if wantedPod != nbPod {
-			return false, nil
-		}
-		return true, nil
-	}
-
-	check1Endpoints := func(eps *corev1.Endpoints) (bool, error) {
-		return checkEndpoints(eps, 1)
-	}
-
-	err = utils.WaitForFuncOnEndpoints(p.t, p.f.KubeClient, p.namespace, "prometheus", check1Endpoints, retryInterval, timeout)
+	err = utils.WaitForEndpointsCount(p.t, p.f.KubeClient, p.namespace, "prometheus", 1, retryInterval, timeout)
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -193,6 +171,8 @@ func (p *PromTestHelper) GenerateMetrics(pods corev1.PodList, okMetrics bool, is
 	if !isCanaryPod {
 		canaryLabel = v1alpha1.KanaryDeploymentLabelValueFalse
 	}
+
+	failNow := p.t.FailNow // to avoid problem in the golangci-lint
 
 	ticker := time.NewTicker(time.Second)
 	go func() {
@@ -206,7 +186,7 @@ func (p *PromTestHelper) GenerateMetrics(pods corev1.PodList, okMetrics bool, is
 			}
 			if err := push.New(p.urlPush, p.jobName).Collector(p.histogram).Push(); err != nil {
 				fmt.Println("Could not push completion time to Pushgateway:", err)
-				p.t.FailNow()
+				failNow()
 			}
 		}
 	}()
@@ -255,6 +235,12 @@ func PromqlInvalidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// check that pods are behind the service
+	err = utils.WaitForEndpointsCount(t, f.KubeClient, namespace, serviceName, int(replicas), retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	//Generate good metrics
 	{
 		t.Log("Start metric generation for OK pods of normal deployment")
@@ -270,6 +256,7 @@ func PromqlInvalidation(t *testing.T) {
 
 	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
 		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
+		InitialDelay:     &metav1.Duration{Duration: 5 * time.Second},
 		PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{
 			PrometheusService: "prometheus",
 			Query:             "(rate(mymetric_sum[10s])/rate(mymetric_count[10s]) and delta(mymetric_count[10s])>3)/scalar(sum(rate(mymetric_sum{kanary_k8s_io_canary_pod=\"false\"}[10s]))/sum(rate(mymetric_count{kanary_k8s_io_canary_pod=\"false\"}[10s])))",
@@ -279,7 +266,11 @@ func PromqlInvalidation(t *testing.T) {
 		},
 	}
 
-	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, validationConfig)
+	trafficConfig := &kanaryv1alpha1.KanaryDeploymentSpecTraffic{
+		Source: kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource,
+	}
+
+	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, trafficConfig, validationConfig)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -287,6 +278,12 @@ func PromqlInvalidation(t *testing.T) {
 
 	// canary deployment is replicas is setted to 1.
 	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, canaryName, 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// check that kanary point is behind the service
+	err = utils.WaitForEndpointsCount(t, f.KubeClient, namespace, serviceName, int(replicas)+1, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,25 +313,8 @@ func PromqlInvalidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// wait that the canary pod is behind the service
-	checkEndpoints := func(eps *corev1.Endpoints, wantedPod int) (bool, error) {
-		nbPod := 0
-		for _, sub := range eps.Subsets {
-			nbPod += len(sub.Addresses)
-		}
-		if wantedPod != nbPod {
-			t.Logf("checkEndpoints %d-%d", wantedPod, nbPod)
-			return false, nil
-		}
-		return true, nil
-	}
-
 	// check that pods are not anymore behind the service
-	check3Endpoints := func(eps *corev1.Endpoints) (bool, error) {
-		return checkEndpoints(eps, 3)
-	}
-
-	err = utils.WaitForFuncOnEndpoints(t, f.KubeClient, namespace, serviceName, check3Endpoints, retryInterval, timeout)
+	err = utils.WaitForEndpointsCount(t, f.KubeClient, namespace, serviceName, 3, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
