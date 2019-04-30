@@ -12,7 +12,6 @@ import (
 
 	"github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
-	utilsctrl "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 	utilskanary "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 	"github.com/amadeusitgroup/kanary/test/e2e/utils"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
@@ -165,8 +164,11 @@ func (p *PromTestHelper) DeployProm() {
 	}
 }
 
-func (p *PromTestHelper) GenerateMetrics(pods corev1.PodList, okMetrics bool, isCanaryPod bool) {
-
+func (p *PromTestHelper) GenerateMetrics(podListOptions metav1.ListOptions, okMetrics bool, isCanaryPod bool) (podsCount int) {
+	pods, _ := p.f.KubeClient.CoreV1().Pods(p.namespace).List(podListOptions)
+	if pods == nil {
+		p.t.Fatalf("Can't retrieve pods")
+	}
 	canaryLabel := v1alpha1.KanaryDeploymentLabelValueTrue
 	if !isCanaryPod {
 		canaryLabel = v1alpha1.KanaryDeploymentLabelValueFalse
@@ -190,6 +192,7 @@ func (p *PromTestHelper) GenerateMetrics(pods corev1.PodList, okMetrics bool, is
 			}
 		}
 	}()
+	return len(pods.Items)
 }
 
 func sanitizeLabel(label string) string {
@@ -242,16 +245,9 @@ func PromqlInvalidation(t *testing.T) {
 	}
 
 	//Generate good metrics
-	{
-		t.Log("Start metric generation for OK pods of normal deployment")
-		pods, _ := f.KubeClient.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: "app=" + name})
-		if pods == nil {
-			t.Fatalf("Can't retrieve pods")
-		}
-		if len(pods.Items) != int(replicas) {
-			t.Fatalf("Bad Pod count")
-		}
-		promHelper.GenerateMetrics(*pods, true, false)
+	t.Log("Start metric generation for OK pods of normal deployment")
+	if podsCount := promHelper.GenerateMetrics(metav1.ListOptions{LabelSelector: "app=" + name}, true, false); podsCount != int(replicas) {
+		t.Fatalf("Bad Pod count")
 	}
 
 	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
@@ -289,26 +285,13 @@ func PromqlInvalidation(t *testing.T) {
 	}
 
 	//Generate bad metrics
-	{
-		labelSlector := LabelsAsSelectorString(utilskanary.GetLabelsForKanaryPod(name))
-		t.Logf("Start metric generation for KO pods (%s)", labelSlector)
-		pods, _ := f.KubeClient.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: labelSlector})
-		if pods == nil {
-			t.Fatalf("Can't retrieve pods")
-		}
-		if len(pods.Items) != 1 {
-			t.Fatalf("Bad Pod count expecting 1 got %d", len(pods.Items))
-		}
-		promHelper.GenerateMetrics(*pods, false, true)
+	labelSlector := LabelsAsSelectorString(utilskanary.GetLabelsForKanaryPod(name))
+	t.Logf("Start metric generation for KO pods (%s)", labelSlector)
+	if podsCount := promHelper.GenerateMetrics(metav1.ListOptions{LabelSelector: labelSlector}, false, true); podsCount != 1 {
+		t.Fatalf("Bad Pod count")
 	}
 
-	checkInvalidStatus := func(kd *kanaryv1alpha1.KanaryDeployment) (bool, error) {
-		if utilsctrl.IsKanaryDeploymentFailed(&kd.Status) {
-			return true, nil
-		}
-		return false, nil
-	}
-	err = utils.WaitForFuncOnKanaryDeployment(t, f.Client, namespace, name, checkInvalidStatus, retryInterval, 2*timeout)
+	err = utils.WaitForInvalidStatusOnKanaryDeployment(t, f.Client, namespace, name, retryInterval, 2*timeout)
 	if err != nil {
 		t.Fatal(err)
 	}

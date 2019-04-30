@@ -19,7 +19,6 @@ import (
 
 	apis "github.com/amadeusitgroup/kanary/pkg/apis"
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
-	utilsctrl "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 	"github.com/amadeusitgroup/kanary/test/e2e/utils"
 )
 
@@ -275,13 +274,7 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkInvalidStatus := func(kd *kanaryv1alpha1.KanaryDeployment) (bool, error) {
-		if utilsctrl.IsKanaryDeploymentFailed(&kd.Status) {
-			return true, nil
-		}
-		return false, nil
-	}
-	err = utils.WaitForFuncOnKanaryDeployment(t, f.Client, namespace, name, checkInvalidStatus, retryInterval, timeout)
+	err = utils.WaitForInvalidStatusOnKanaryDeployment(t, f.Client, namespace, name, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -370,13 +363,8 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("Start checking KanaryDeployment status")
-	checkInvalidStatus := func(kd *kanaryv1alpha1.KanaryDeployment) (bool, error) {
-		if utilsctrl.IsKanaryDeploymentFailed(&kd.Status) {
-			return true, nil
-		}
-		return false, nil
-	}
-	err = utils.WaitForFuncOnKanaryDeployment(t, f.Client, namespace, name, checkInvalidStatus, retryInterval, 2*timeout)
+
+	err = utils.WaitForInvalidStatusOnKanaryDeployment(t, f.Client, namespace, name, retryInterval, 2*timeout)
 	if err != nil {
 		t.Fatal(err)
 	}

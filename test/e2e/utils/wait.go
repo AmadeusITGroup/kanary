@@ -19,6 +19,7 @@ import (
 	dynclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	utilsctrl "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
 // WaitForFuncOnDeployment used to wait a valid condition on a Deployment
@@ -80,6 +81,18 @@ func WaitForFuncOnKanaryDeployment(t *testing.T, client framework.FrameworkClien
 		t.Logf("Waiting for condition function to be true ok for %s kanaryDeployment (%t/%v)\n", name, ok, err)
 		return ok, err
 	})
+}
+
+func checkInvalidStatus(kd *kanaryv1alpha1.KanaryDeployment) (bool, error) {
+	if utilsctrl.IsKanaryDeploymentFailed(&kd.Status) {
+		return true, nil
+	}
+	return false, nil
+}
+
+// WaitForInvalidStatusOnKanaryDeployment used to wait an invalidated status on a KanaryDeployment
+func WaitForInvalidStatusOnKanaryDeployment(t *testing.T, client framework.FrameworkClient, namespace, name string, retryInterval, timeout time.Duration) error {
+	return WaitForFuncOnKanaryDeployment(t, client, namespace, name, checkInvalidStatus, retryInterval, timeout)
 }
 
 // WaitForFuncOnHPA used to wait a valid condition on a HPA
