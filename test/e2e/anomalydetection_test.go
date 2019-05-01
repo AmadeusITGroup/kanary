@@ -186,8 +186,8 @@ func (p *PromTestHelper) GenerateMetrics(podListOptions metav1.ListOptions, okMe
 	failNow := p.t.FailNow // to avoid problem in the golangci-lint
 
 	ticker := time.NewTicker(time.Second)
+	p.wg.Add(1)
 	go func() {
-		p.wg.Add(1)
 		defer p.wg.Done()
 		for {
 			select {
@@ -276,7 +276,7 @@ func PromqlInvalidation(t *testing.T) {
 
 	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
 		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
-		//InitialDelay:     &metav1.Duration{Duration: 5 * time.Second},  //TODO fix bug with initial delay
+		InitialDelay:     &metav1.Duration{Duration: 5 * time.Second},
 		PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{
 			PrometheusService: "prometheus",
 			Query:             "(rate(mymetric_sum[10s])/rate(mymetric_count[10s]) and delta(mymetric_count[10s])>3)/scalar(sum(rate(mymetric_sum{kanary_k8s_io_canary_pod=\"false\"}[10s]))/sum(rate(mymetric_count{kanary_k8s_io_canary_pod=\"false\"}[10s])))",
