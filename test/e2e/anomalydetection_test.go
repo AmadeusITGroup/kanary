@@ -275,7 +275,7 @@ func PromqlInvalidation(t *testing.T) {
 	}
 
 	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
-		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
+		ValidationPeriod: &metav1.Duration{Duration: 30 * time.Second},
 		InitialDelay:     &metav1.Duration{Duration: 5 * time.Second},
 		PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{
 			PrometheusService: "prometheus",
@@ -315,7 +315,7 @@ func PromqlInvalidation(t *testing.T) {
 		t.Fatalf("Bad Pod count")
 	}
 
-	err = utils.WaitForInvalidStatusOnKanaryDeployment(t, f.Client, namespace, name, retryInterval, 2*timeout)
+	err = utils.WaitForInvalidStatusOnKanaryDeployment(t, f.Client, namespace, name, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
