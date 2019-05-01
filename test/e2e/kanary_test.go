@@ -492,7 +492,8 @@ func newDeploymentSpec(name, image, tag string, command []string, replicas int32
 						Ports: []corev1.ContainerPort{
 							{ContainerPort: 80},
 						},
-						Command: command,
+						Command:         command,
+						ImagePullPolicy: corev1.PullIfNotPresent,
 					},
 				},
 			},
