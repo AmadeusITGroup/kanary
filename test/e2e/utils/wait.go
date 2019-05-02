@@ -40,6 +40,7 @@ func WaitForFuncOnDeployment(t *testing.T, kubeclient kubernetes.Interface, name
 	})
 }
 
+//EndpointCheckFunc function to perform checks on endpoint object
 type EndpointCheckFunc func(*corev1.Endpoints) (bool, error)
 
 // WaitForFuncOnEndpoints used to wait a valid condition on Endpoints

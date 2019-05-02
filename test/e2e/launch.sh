@@ -10,7 +10,7 @@ set -o pipefail
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 CURRENT=$PWD
-cd $DIR/../..
+cd "$DIR/../.."
 
 # Load the image
 make build
@@ -23,11 +23,11 @@ proxyPID=$!
 function killProxy {
   echo "Stopping kubeproxy"
   kill -9 ${proxyPID}
-  cd $CURRENT
+  cd "$CURRENT"
 }
 trap killProxy EXIT
 
 #run the test
-operator-sdk test local ./test/e2e --image kanary/operator:$TAG --kubeconfig $(kind get kubeconfig-path)
+operator-sdk test local ./test/e2e --image kanary/operator:$TAG --kubeconfig "$(kind get kubeconfig-path)"
 
 

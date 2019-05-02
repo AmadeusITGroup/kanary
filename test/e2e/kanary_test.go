@@ -9,10 +9,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1beta1"
 	v2beta1 "k8s.io/api/autoscaling/v2beta1"
-	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
@@ -87,13 +85,13 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	serviceName := name
 	canaryName := name + "-kanary-" + name
 
-	newService := newService(namespace, serviceName, map[string]string{"app": name})
+	newService := utils.NewService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	newDeployment := newDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
+	newDeployment := utils.NewDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
 	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -105,7 +103,7 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	}
 
 	// Init KanaryDeployment with defaulted Strategy (desactiviated)
-	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, nil)
+	newKD := utils.NewKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, nil)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -164,7 +162,7 @@ func ManualValidationAfterDeadline(t *testing.T) {
 	serviceName := ""
 	canaryName := name + "-kanary-" + name
 
-	newDeployment := newDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
+	newDeployment := utils.NewDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
 	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -181,7 +179,7 @@ func ManualValidationAfterDeadline(t *testing.T) {
 			StatusAfterDealine: kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus,
 		},
 	}
-	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, validationConfig)
+	newKD := utils.NewKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, validationConfig)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -230,13 +228,13 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 	serviceName := name
 	canaryName := name + "-kanary-" + name
 
-	newService := newService(namespace, serviceName, map[string]string{"app": name})
+	newService := utils.NewService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	newDeployment := newDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
+	newDeployment := utils.NewDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
 	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -256,7 +254,7 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 	trafficConfig := &kanaryv1alpha1.KanaryDeploymentSpecTraffic{
 		Source: kanaryv1alpha1.ServiceKanaryDeploymentSpecTrafficSource,
 	}
-	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, trafficConfig, invalidationConfig)
+	newKD := utils.NewKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, trafficConfig, invalidationConfig)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -304,13 +302,13 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 	serviceName := name
 	canaryName := name + "-kanary-" + name
 
-	newService := newService(namespace, serviceName, map[string]string{"app": name})
+	newService := utils.NewService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	newDeployment := newDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
+	newDeployment := utils.NewDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
 	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -332,7 +330,7 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 	trafficConfig := &kanaryv1alpha1.KanaryDeploymentSpecTraffic{
 		Source: kanaryv1alpha1.BothKanaryDeploymentSpecTrafficSource,
 	}
-	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, trafficConfig, invalidationConfig)
+	newKD := utils.NewKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, trafficConfig, invalidationConfig)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -358,7 +356,7 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 			d.Labels[key] = val
 		}
 	}
-	err = updateDeploymentFunc(f, canaryName, namespace, addLabelsFunc)
+	err = utils.UpdateDeploymentFunc(f, canaryName, namespace, addLabelsFunc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,13 +391,13 @@ func HPAcreation(t *testing.T) {
 	serviceName := name
 	canaryName := name + "-kanary-" + name
 
-	newService := newService(namespace, serviceName, map[string]string{"app": name})
+	newService := utils.NewService(namespace, serviceName, map[string]string{"app": name})
 	err = f.Client.Create(goctx.TODO(), newService, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	newDeployment := newDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
+	newDeployment := utils.NewDeployment(namespace, name, "busybox", "latest", commandV0, replicas)
 	err = f.Client.Create(goctx.TODO(), newDeployment, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -418,7 +416,7 @@ func HPAcreation(t *testing.T) {
 		},
 	}
 
-	newKD := newKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, scaleSpec, nil, nil)
+	newKD := utils.NewKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, scaleSpec, nil, nil)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -439,115 +437,5 @@ func HPAcreation(t *testing.T) {
 	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, canaryName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
-	}
-}
-
-func updateDeploymentFunc(f *framework.Framework, name, namespace string, updateFunc func(kd *appsv1.Deployment)) error {
-	kd := &appsv1.Deployment{}
-	err := f.Client.Get(goctx.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, kd)
-	if err != nil {
-		return err
-	}
-
-	updateKD := kd.DeepCopy()
-	updateFunc(updateKD)
-	err = f.Client.Update(goctx.TODO(), updateKD)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func newDeployment(namespace, name, image, tag string, command []string, replicas int32) *appsv1.Deployment {
-	return &appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Deployment",
-			APIVersion: appsv1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: newDeploymentSpec(name, image, tag, command, replicas),
-	}
-}
-
-func newDeploymentSpec(name, image, tag string, command []string, replicas int32) appsv1.DeploymentSpec {
-	return appsv1.DeploymentSpec{
-		Replicas: &replicas,
-		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": name, "version": tag},
-		},
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{"app": name, "version": tag},
-			},
-
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name:  "container1",
-						Image: fmt.Sprintf("%s:%s", image, tag),
-						Ports: []corev1.ContainerPort{
-							{ContainerPort: 80},
-						},
-						Command:         command,
-						ImagePullPolicy: corev1.PullIfNotPresent,
-					},
-				},
-			},
-		},
-	}
-}
-
-func newKanaryDeployment(namespace, name, deploymentName, serviceName, image, tag string, command []string, replicas int32, scale *kanaryv1alpha1.KanaryDeploymentSpecScale, traffic *kanaryv1alpha1.KanaryDeploymentSpecTraffic, validation *kanaryv1alpha1.KanaryDeploymentSpecValidation) *kanaryv1alpha1.KanaryDeployment {
-	kd := &kanaryv1alpha1.KanaryDeployment{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "KanaryDeployment",
-			APIVersion: kanaryv1alpha1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: kanaryv1alpha1.KanaryDeploymentSpec{
-			ServiceName:    serviceName,
-			DeploymentName: deploymentName,
-			Template: kanaryv1alpha1.DeploymentTemplate{
-				Spec: newDeploymentSpec(name, image, tag, command, replicas),
-			},
-		},
-	}
-
-	if scale != nil {
-		kd.Spec.Scale = *scale
-	}
-	if traffic != nil {
-		kd.Spec.Traffic = *traffic
-	}
-	if validation != nil {
-		kd.Spec.Validation = *validation
-	}
-
-	return kd
-}
-
-func newService(namespace, name string, labelsSelector map[string]string) *corev1.Service {
-	return &corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: labelsSelector,
-			Ports: []corev1.ServicePort{
-				{Port: 80},
-			},
-		},
 	}
 }
