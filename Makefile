@@ -26,8 +26,8 @@ container:
 test:
 	./go.test.sh
 
-e2e: build container
-	operator-sdk test local ./test/e2e
+e2e:
+	./test/e2e/launch.sh
 
 push: container
 	docker push $(PREFIX):$(TAG)

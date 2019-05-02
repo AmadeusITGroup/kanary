@@ -4,8 +4,6 @@ import (
 	goctx "context"
 	"fmt"
 	"math/rand"
-	"net"
-	"net/url"
 	"regexp"
 	"sync"
 	"testing"
@@ -25,6 +23,8 @@ import (
 )
 
 const (
+	prometheusPushPort      = 9091
+	prometheusServerPort    = 9090
 	prometheusPushNodePort  = 30991
 	prometheusNodePort      = 30990
 	prometheusConfigMapName = "promconfig"
@@ -47,9 +47,6 @@ func RandValueIn(base int, delta int) float64 {
 }
 
 func NewPromTestHelper(t *testing.T, ctx *framework.TestCtx, f *framework.Framework, namespace string, jobName string) *PromTestHelper {
-	url, _ := url.Parse(f.KubeConfig.Host)
-	minikubeIP, _, _ := net.SplitHostPort(url.Host)
-
 	var sampleHisto = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "mymetric",
 		Help: "mymetric for e2e test",
@@ -60,7 +57,7 @@ func NewPromTestHelper(t *testing.T, ctx *framework.TestCtx, f *framework.Framew
 		ctx:       ctx,
 		f:         f,
 		namespace: namespace,
-		urlPush:   "http://" + minikubeIP + fmt.Sprintf(":%d", prometheusPushNodePort),
+		urlPush:   "http://127.0.0.1:8001/api/v1/namespaces/" + namespace + "/services/http:prometheus:" + fmt.Sprintf("%d", prometheusPushPort) + "/proxy",
 		histogram: sampleHisto,
 		jobName:   jobName,
 		done:      make(chan struct{}),
@@ -74,7 +71,7 @@ scrape_configs:
   - job_name: 'pushgateway'
     honor_labels: true
     static_configs:
-      - targets: ['localhost:9091']
+      - targets: ['localhost:` + fmt.Sprintf("%d", prometheusPushPort) + `']
 `
 
 func (p *PromTestHelper) Stop() {
@@ -105,7 +102,7 @@ func (p *PromTestHelper) CreatePromConfigMap() {
 func (p *PromTestHelper) DeployProm() {
 	p.CreatePromConfigMap()
 	PromDeployment := newDeployment(p.namespace, "prometheus", "prom/prometheus", "v2.9.2", nil, 1)
-	PromDeployment.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{ContainerPort: 9090}}
+	PromDeployment.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{ContainerPort: prometheusServerPort}}
 	PromDeployment.Spec.Template.Spec.Containers[0].Args = []string{"--config.file=/etc/config/prometheus.yml"}
 	PromDeployment.Spec.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
 		{
@@ -129,7 +126,7 @@ func (p *PromTestHelper) DeployProm() {
 		Name:  "pushgateway",
 		Image: "prom/pushgateway:v0.8.0",
 		Ports: []corev1.ContainerPort{
-			{ContainerPort: 9091},
+			{ContainerPort: prometheusPushPort},
 		},
 	}
 	PromDeployment.Spec.Template.Spec.Containers = append(PromDeployment.Spec.Template.Spec.Containers, pushContainer)
@@ -151,13 +148,13 @@ func (p *PromTestHelper) DeployProm() {
 			Port: 80,
 			TargetPort: intstr.IntOrString{
 				Type:   intstr.Int,
-				IntVal: 9090,
+				IntVal: prometheusServerPort,
 			},
 			NodePort: prometheusNodePort,
 		},
 		{
 			Name:     "push",
-			Port:     9091,
+			Port:     prometheusPushPort,
 			NodePort: prometheusPushNodePort,
 		},
 	}
@@ -275,7 +272,7 @@ func PromqlInvalidation(t *testing.T) {
 	}
 
 	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
-		ValidationPeriod: &metav1.Duration{Duration: 30 * time.Second},
+		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
 		InitialDelay:     &metav1.Duration{Duration: 5 * time.Second},
 		PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{
 			PrometheusService: "prometheus",
