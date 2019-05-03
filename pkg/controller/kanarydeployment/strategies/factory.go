@@ -60,9 +60,9 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 		validationImpl = validation.NewManual(&spec.Validation)
 	} else if spec.Validation.LabelWatch != nil {
 		validationImpl = validation.NewLabelWatch(&spec.Validation)
-	} /* else if spec.Validation.PromQL != nil {
-		// TODO implement NewPromQL()
-	}*/
+	} else if spec.Validation.PromQL != nil {
+		validationImpl = validation.NewPromql(&spec.Validation)
+	}
 
 	return &strategy{
 		scale:               scaleImpls,
@@ -148,13 +148,19 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 
 		}
 	}
-	reqLogger.Info("Check Validation")
-	if validation.IsValidationDelayPeriodDone(kd) {
+
+	if reaminingDelay, done := validation.IsValidationDelayPeriodDone(kd); done {
+		reqLogger.Info("Check Validation")
 		status, result, err = s.validation.Validation(kclient, reqLogger, kd, dep, canarydep)
 		if err != nil {
 			return status, result, fmt.Errorf("error during Validation processing, err: %v", err)
 		}
+	} else {
+		reqLogger.Info("Check Validation", "requeue-initial-delay", reaminingDelay)
+		result.RequeueAfter = reaminingDelay
+		return status, result, err
 	}
+
 	return status, result, err
 }
 

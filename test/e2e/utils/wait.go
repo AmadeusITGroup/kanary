@@ -19,6 +19,7 @@ import (
 	dynclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	utilsctrl "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
 // WaitForFuncOnDeployment used to wait a valid condition on a Deployment
@@ -39,8 +40,11 @@ func WaitForFuncOnDeployment(t *testing.T, kubeclient kubernetes.Interface, name
 	})
 }
 
+//EndpointCheckFunc function to perform checks on endpoint object
+type EndpointCheckFunc func(*corev1.Endpoints) (bool, error)
+
 // WaitForFuncOnEndpoints used to wait a valid condition on Endpoints
-func WaitForFuncOnEndpoints(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, f func(*corev1.Endpoints) (bool, error), retryInterval, timeout time.Duration) error {
+func WaitForFuncOnEndpoints(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, f EndpointCheckFunc, retryInterval, timeout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		eps, err := kubeclient.CoreV1().Endpoints(namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
@@ -80,6 +84,18 @@ func WaitForFuncOnKanaryDeployment(t *testing.T, client framework.FrameworkClien
 	})
 }
 
+func checkInvalidStatus(kd *kanaryv1alpha1.KanaryDeployment) (bool, error) {
+	if utilsctrl.IsKanaryDeploymentFailed(&kd.Status) {
+		return true, nil
+	}
+	return false, nil
+}
+
+// WaitForInvalidStatusOnKanaryDeployment used to wait an invalidated status on a KanaryDeployment
+func WaitForInvalidStatusOnKanaryDeployment(t *testing.T, client framework.FrameworkClient, namespace, name string, retryInterval, timeout time.Duration) error {
+	return WaitForFuncOnKanaryDeployment(t, client, namespace, name, checkInvalidStatus, retryInterval, timeout)
+}
+
 // WaitForFuncOnHPA used to wait a valid condition on a HPA
 func WaitForFuncOnHPA(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, f func(hpa *v2beta1.HorizontalPodAutoscaler) (bool, error), retryInterval, timeout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
@@ -96,4 +112,25 @@ func WaitForFuncOnHPA(t *testing.T, kubeclient kubernetes.Interface, namespace, 
 		t.Logf("Waiting for condition function to be true ok for %s HorizontalPodAutoscaler (%t/%v)\n", name, ok, err)
 		return ok, err
 	})
+}
+
+//CheckEndpoints check if the count of endpoint is the expexted one
+func CheckEndpoints(t *testing.T, eps *corev1.Endpoints, wantedPod int) (bool, error) {
+	nbPod := 0
+	for _, sub := range eps.Subsets {
+		nbPod += len(sub.Addresses)
+	}
+	if wantedPod != nbPod {
+		t.Logf("checkEndpoints %d-%d", wantedPod, nbPod)
+		return false, nil
+	}
+	return true, nil
+}
+
+//WaitForEndpointsCount wait for the endpoint to reach a given count
+func WaitForEndpointsCount(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, endpointCount int, retryInterval, timeout time.Duration) error {
+	f := func(eps *corev1.Endpoints) (bool, error) {
+		return CheckEndpoints(t, eps, endpointCount)
+	}
+	return WaitForFuncOnEndpoints(t, kubeclient, namespace, name, f, retryInterval, timeout)
 }

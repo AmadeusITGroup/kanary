@@ -11,7 +11,7 @@ type FactoryConfig struct {
 	ContinuousValueDeviationConfig *ContinuousValueDeviationConfig
 	PromConfig                     *ConfigPrometheusAnomalyDetector
 	CustomService                  string
-	customFactory                  Factory
+	customFactory                  Factory //for test purpose
 }
 
 //Factory functor for AnomalyDetection

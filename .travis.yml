@@ -35,7 +35,7 @@ jobs:
     - make validate
     - make TAG=$TAG container
     - kind load docker-image kanary/operator:$TAG
-    - operator-sdk test local ./test/e2e --image kanary/operator:$TAG --kubeconfig $KUBECONFIG
+    - make SKIPBUILD=1 TAG=$TAG e2e
   - stage: release
     script:
       - docker login -u "$DOCKER_USERNAME" p "$DOCKER_PASSWORD"
