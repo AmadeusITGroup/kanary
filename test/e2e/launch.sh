@@ -4,6 +4,11 @@ then
 TAG=latest
 fi
 
+if [ -z "$SKIPBUILD" ]
+then
+SKIPBUILD=0
+fi
+
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -13,8 +18,11 @@ CURRENT=$PWD
 cd "$DIR/../.."
 
 # Load the image
-make build
-make TAG=$TAG container
+if [ ! "$SKIPBUILD" = "1" ]
+then
+    make build
+    make TAG=$TAG container
+fi
 kind load docker-image kanary/operator:$TAG
 
 #Laucnh proxy
@@ -28,6 +36,6 @@ function killProxy {
 trap killProxy EXIT
 
 #run the test
-operator-sdk test local ./test/e2e --image kanary/operator:$TAG --kubeconfig "$(kind get kubeconfig-path)"
+operator-sdk test local ./test/e2e --image kanary/operator:$TAG
 
 

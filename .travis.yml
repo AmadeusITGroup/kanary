@@ -35,7 +35,7 @@ jobs:
     - make validate
     - make TAG=$TAG container
     - kind load docker-image kanary/operator:$TAG
-    - make e2e
+    - make SKIPBUILD=1 e2e
   - stage: release
     script:
       - docker login -u "$DOCKER_USERNAME" p "$DOCKER_PASSWORD"
