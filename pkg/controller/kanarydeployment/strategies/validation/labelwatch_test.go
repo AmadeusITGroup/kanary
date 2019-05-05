@@ -50,9 +50,10 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 	)
 
 	type fields struct {
-		validationPeriod *metav1.Duration
-		dryRun           bool
-		config           *kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch
+		validationPeriod  *metav1.Duration
+		maxIntervalPeriod *metav1.Duration
+		dryRun            bool
+		config            *kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch
 	}
 	type args struct {
 		kclient   client.Client
@@ -72,8 +73,9 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 		{
 			name: "default manual validation spec",
 			fields: fields{
-				validationPeriod: &metav1.Duration{Duration: 30 * time.Second},
-				dryRun:           false,
+				validationPeriod:  &metav1.Duration{Duration: 30 * time.Second},
+				maxIntervalPeriod: &metav1.Duration{Duration: 15 * time.Second},
+				dryRun:            false,
 				config: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
 					DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
 				},
@@ -92,8 +94,9 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 		{
 			name: "validation period not finished",
 			fields: fields{
-				validationPeriod: &metav1.Duration{Duration: 4 * time.Minute},
-				dryRun:           false,
+				validationPeriod:  &metav1.Duration{Duration: 4 * time.Minute},
+				maxIntervalPeriod: &metav1.Duration{Duration: 15 * time.Second},
+				dryRun:            false,
 				config: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
 					DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
 				},
@@ -112,8 +115,9 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 		{
 			name: "dryrun, no deployment update",
 			fields: fields{
-				validationPeriod: &metav1.Duration{Duration: 30 * time.Second},
-				dryRun:           true,
+				validationPeriod:  &metav1.Duration{Duration: 30 * time.Second},
+				maxIntervalPeriod: &metav1.Duration{Duration: 15 * time.Second},
+				dryRun:            true,
 				config: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
 					DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
 				},
@@ -132,8 +136,9 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 		{
 			name: "pod selector: validation success",
 			fields: fields{
-				validationPeriod: &metav1.Duration{Duration: 30 * time.Second},
-				dryRun:           false,
+				validationPeriod:  &metav1.Duration{Duration: 30 * time.Second},
+				maxIntervalPeriod: &metav1.Duration{Duration: 15 * time.Second},
+				dryRun:            false,
 				config: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
 					PodInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
 				},
@@ -152,8 +157,9 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 		{
 			name: "deployment Selector: validation period not finished",
 			fields: fields{
-				validationPeriod: &metav1.Duration{Duration: 4 * time.Minute},
-				dryRun:           false,
+				validationPeriod:  &metav1.Duration{Duration: 4 * time.Minute},
+				maxIntervalPeriod: &metav1.Duration{Duration: 15 * time.Second},
+				dryRun:            false,
 				config: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
 					DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
 				},
@@ -172,8 +178,9 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 		{
 			name: "Deployment selector: validation period not finished, label failed present",
 			fields: fields{
-				validationPeriod: &metav1.Duration{Duration: 4 * time.Minute},
-				dryRun:           false,
+				validationPeriod:  &metav1.Duration{Duration: 4 * time.Minute},
+				maxIntervalPeriod: &metav1.Duration{Duration: 15 * time.Second},
+				dryRun:            false,
 				config: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
 					DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
 				},
@@ -192,8 +199,9 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 		{
 			name: "Pod selector: validation period not finished, label failed present",
 			fields: fields{
-				validationPeriod: &metav1.Duration{Duration: 4 * time.Minute},
-				dryRun:           false,
+				validationPeriod:  &metav1.Duration{Duration: 4 * time.Minute},
+				maxIntervalPeriod: &metav1.Duration{Duration: 15 * time.Second},
+				dryRun:            false,
 				config: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
 					PodInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
 				},
@@ -214,9 +222,10 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 		reqLogger := log.WithValues("test:", tt.name)
 		t.Run(tt.name, func(t *testing.T) {
 			l := &labelWatchImpl{
-				validationPeriod: tt.fields.validationPeriod,
-				dryRun:           tt.fields.dryRun,
-				config:           tt.fields.config,
+				validationPeriod:  tt.fields.validationPeriod,
+				maxIntervalPeriod: tt.fields.maxIntervalPeriod,
+				dryRun:            tt.fields.dryRun,
+				config:            tt.fields.config,
 			}
 			gotStatus, _, err := l.Validation(tt.args.kclient, reqLogger, tt.args.kd, tt.args.dep, tt.args.canaryDep)
 			if (err != nil) != tt.wantErr {

@@ -24,6 +24,7 @@ func NewManual(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 		deadlineStatus:         s.Manual.StatusAfterDealine,
 		validationManualStatus: s.Manual.Status,
 		validationPeriod:       s.ValidationPeriod.Duration,
+		maxIntervalPeriod:      s.MaxIntervalPeriod.Duration,
 		dryRun:                 s.NoUpdate,
 	}
 }
@@ -32,6 +33,7 @@ type manualImpl struct {
 	deadlineStatus         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadineStatus
 	validationManualStatus kanaryv1alpha1.KanaryDeploymentSpecValidationManualStatus
 	validationPeriod       time.Duration
+	maxIntervalPeriod      time.Duration
 	dryRun                 bool
 }
 
@@ -45,7 +47,7 @@ func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 	var deadlineReached bool
 	if canaryDep != nil {
 		var requeueAfter time.Duration
-		requeueAfter, deadlineReached = isDeadlinePeriodDone(m.validationPeriod, canaryDep.CreationTimestamp.Time, time.Now())
+		requeueAfter, deadlineReached = isDeadlinePeriodDone(m.validationPeriod, m.maxIntervalPeriod, canaryDep.CreationTimestamp.Time, time.Now())
 		if !deadlineReached {
 			result.RequeueAfter = requeueAfter
 		} else if m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {

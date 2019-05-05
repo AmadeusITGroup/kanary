@@ -23,16 +23,18 @@ import (
 func NewPromql(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 
 	return &promqlImpl{
-		validationSpec:   *s.PromQL,
-		validationPeriod: s.ValidationPeriod.Duration,
-		dryRun:           s.NoUpdate,
+		validationSpec:    *s.PromQL,
+		validationPeriod:  s.ValidationPeriod.Duration,
+		maxIntervalPeriod: s.MaxIntervalPeriod.Duration,
+		dryRun:            s.NoUpdate,
 	}
 }
 
 type promqlImpl struct {
-	validationSpec   kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL
-	validationPeriod time.Duration
-	dryRun           bool
+	validationSpec    kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL
+	validationPeriod  time.Duration
+	maxIntervalPeriod time.Duration
+	dryRun            bool
 
 	anomalydetector        anomalydetector.AnomalyDetector
 	anomalydetectorFactory anomalydetector.Factory //for test purposes
@@ -132,7 +134,7 @@ func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 	var deadlineReached bool
 	if canaryDep != nil {
 		var requeueAfter time.Duration
-		requeueAfter, deadlineReached = isDeadlinePeriodDone(p.validationPeriod, canaryDep.CreationTimestamp.Time, time.Now())
+		requeueAfter, deadlineReached = isDeadlinePeriodDone(p.validationPeriod, p.maxIntervalPeriod, canaryDep.CreationTimestamp.Time, time.Now())
 		if !deadlineReached {
 			result.RequeueAfter = requeueAfter
 		}
