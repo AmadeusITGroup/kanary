@@ -26,9 +26,10 @@ func UpdateKanaryDeploymentStatusForFailure(kclient client.StatusWriter, reqLogg
 
 // UpdateKanaryDeploymentStatus used to update the KanaryDeployment.Status if it has changed.
 func UpdateKanaryDeploymentStatus(kclient client.StatusWriter, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, newStatus *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) (reconcile.Result, error) {
-	if !apiequality.Semantic.DeepEqual(&kd.Status, newStatus) {
+	updatedStatus := updateStatusWithReport(kd, newStatus)
+	if !apiequality.Semantic.DeepEqual(&kd.Status, updatedStatus) {
 		updatedKd := kd.DeepCopy()
-		updatedKd.Status = *newStatus
+		updatedKd.Status = *updatedStatus
 		err2 := kclient.Update(context.TODO(), updatedKd)
 		if err2 != nil {
 			reqLogger.Error(err2, "failed to update KanaryDeployment status", "KanaryDeployment.Namespace", updatedKd.Namespace, "KanaryDeployment.Name", updatedKd.Name)
@@ -103,4 +104,52 @@ func getIndexForConditionType(status *kanaryv1alpha1.KanaryDeploymentStatus, t k
 		}
 	}
 	return idCondition
+}
+
+func getReportStatus(status *kanaryv1alpha1.KanaryDeploymentStatus) string {
+	if IsKanaryDeploymentSucceeded(status) {
+		return "Succeeded"
+	} else if IsKanaryDeploymentFailed(status) {
+		return "Failed"
+	}
+	return "Running"
+}
+
+func getValidation(kd *kanaryv1alpha1.KanaryDeployment) string {
+	if kd.Spec.Validation.LabelWatch != nil {
+		return "labelWatch"
+	}
+	if kd.Spec.Validation.PromQL != nil {
+		return "promQL"
+	}
+	if kd.Spec.Validation.Manual != nil {
+		return "manual"
+	}
+	return "unknow"
+}
+
+func getScale(kd *kanaryv1alpha1.KanaryDeployment) string {
+	if kd.Spec.Scale.HPA == nil {
+		return "static"
+	}
+	return "hpa"
+}
+
+func getTraffic(kd *kanaryv1alpha1.KanaryDeployment) string {
+	return string(kd.Spec.Traffic.Source)
+}
+
+func updateStatusWithReport(kd *kanaryv1alpha1.KanaryDeployment, status *kanaryv1alpha1.KanaryDeploymentStatus) *kanaryv1alpha1.KanaryDeploymentStatus {
+	newReport := kanaryv1alpha1.KanaryDeploymentStatusReport{
+		Status:     getReportStatus(&kd.Status),
+		Validation: getValidation(kd),
+		Scale:      getScale(kd),
+		Traffic:    getTraffic(kd),
+	}
+	if !apiequality.Semantic.DeepEqual(status.Report, newReport) {
+		newStatus := status.DeepCopy()
+		newStatus.Report = newReport
+		return newStatus
+	}
+	return status
 }

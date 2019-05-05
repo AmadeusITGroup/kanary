@@ -12,6 +12,31 @@ spec:
     shortNames:
     - kd
     - kanary
+  additionalPrinterColumns:
+  - name: Status
+    type: string
+    description: Status for the KanaryDeployment.
+    JSONPath: ".status.report.status"
+  - name: Deployment
+    type: string
+    description: Deployment Name used for the KanaryDeployment.
+    JSONPath: ".spec.deploymentName"
+  - name: Service
+    type: string
+    description: Service Name used for the KanaryDeployment.
+    JSONPath: ".spec.serviceName"
+  - name: Traffic
+    type: string
+    description: Traffic type used for the KanaryDeployment.
+    JSONPath: ".spec.traffic.source"
+  - name: Scale
+    type: string
+    description: Scale type used for the KanaryDeployment.
+    JSONPath: ".status.report.scale"
+  - name: Validation
+    type: string
+    description: Validation configuration used for the KanaryDeployment.
+    JSONPath: ".status.report.validation"
   scope: Namespaced
   version: v1alpha1
   subresources:

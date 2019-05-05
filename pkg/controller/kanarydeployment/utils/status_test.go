@@ -1,11 +1,11 @@
 package utils
 
 import (
+	"reflect"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestIsKanaryDeploymentFailed(t *testing.T) {
@@ -111,6 +111,121 @@ func TestIsKanaryDeploymentSucceeded(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsKanaryDeploymentSucceeded(tt.args.status); got != tt.want {
 				t.Errorf("IsKanaryDeploymentSucceeded() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_updateStatusWithReport(t *testing.T) {
+	type args struct {
+		kd     *kanaryv1alpha1.KanaryDeployment
+		status *kanaryv1alpha1.KanaryDeploymentStatus
+	}
+	tests := []struct {
+		name string
+		args args
+		want *kanaryv1alpha1.KanaryDeploymentStatus
+	}{
+		{
+			name: "default report",
+			args: args{
+				kd: &kanaryv1alpha1.KanaryDeployment{
+					Spec: kanaryv1alpha1.KanaryDeploymentSpec{
+						Traffic: kanaryv1alpha1.KanaryDeploymentSpecTraffic{},
+					},
+				},
+				status: &kanaryv1alpha1.KanaryDeploymentStatus{
+					Report: kanaryv1alpha1.KanaryDeploymentStatusReport{},
+				},
+			},
+			want: &kanaryv1alpha1.KanaryDeploymentStatus{
+				Report: kanaryv1alpha1.KanaryDeploymentStatusReport{
+					Status:     "Running",
+					Scale:      "static",
+					Validation: "unknow",
+				},
+			},
+		},
+		{
+			name: "promQL validation",
+			args: args{
+				kd: &kanaryv1alpha1.KanaryDeployment{
+					Spec: kanaryv1alpha1.KanaryDeploymentSpec{
+						Traffic: kanaryv1alpha1.KanaryDeploymentSpecTraffic{
+							Mirror: &kanaryv1alpha1.KanaryDeploymentSpecTrafficMirror{},
+						},
+						Validation: kanaryv1alpha1.KanaryDeploymentSpecValidation{
+							PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{},
+						},
+					},
+				},
+				status: &kanaryv1alpha1.KanaryDeploymentStatus{
+					Report: kanaryv1alpha1.KanaryDeploymentStatusReport{},
+				},
+			},
+			want: &kanaryv1alpha1.KanaryDeploymentStatus{
+				Report: kanaryv1alpha1.KanaryDeploymentStatusReport{
+					Status:     "Running",
+					Scale:      "static",
+					Validation: "promQL",
+				},
+			},
+		},
+		{
+			name: "labelWatch validation",
+			args: args{
+				kd: &kanaryv1alpha1.KanaryDeployment{
+					Spec: kanaryv1alpha1.KanaryDeploymentSpec{
+						Traffic: kanaryv1alpha1.KanaryDeploymentSpecTraffic{
+							Mirror: &kanaryv1alpha1.KanaryDeploymentSpecTrafficMirror{},
+						},
+						Validation: kanaryv1alpha1.KanaryDeploymentSpecValidation{
+							LabelWatch: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{},
+						},
+					},
+				},
+				status: &kanaryv1alpha1.KanaryDeploymentStatus{
+					Report: kanaryv1alpha1.KanaryDeploymentStatusReport{},
+				},
+			},
+			want: &kanaryv1alpha1.KanaryDeploymentStatus{
+				Report: kanaryv1alpha1.KanaryDeploymentStatusReport{
+					Status:     "Running",
+					Scale:      "static",
+					Validation: "labelWatch",
+				},
+			},
+		},
+		{
+			name: "manual validation",
+			args: args{
+				kd: &kanaryv1alpha1.KanaryDeployment{
+					Spec: kanaryv1alpha1.KanaryDeploymentSpec{
+						Traffic: kanaryv1alpha1.KanaryDeploymentSpecTraffic{
+							Mirror: &kanaryv1alpha1.KanaryDeploymentSpecTrafficMirror{},
+						},
+						Validation: kanaryv1alpha1.KanaryDeploymentSpecValidation{
+							Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{},
+						},
+					},
+				},
+				status: &kanaryv1alpha1.KanaryDeploymentStatus{
+					Report: kanaryv1alpha1.KanaryDeploymentStatusReport{},
+				},
+			},
+			want: &kanaryv1alpha1.KanaryDeploymentStatus{
+				Report: kanaryv1alpha1.KanaryDeploymentStatusReport{
+					Status:     "Running",
+					Scale:      "static",
+					Validation: "manual",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := updateStatusWithReport(tt.args.kd, tt.args.status); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("updateStatusWithReport() = %v, want %v", got, tt.want)
 			}
 		})
 	}

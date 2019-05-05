@@ -16,7 +16,6 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
-	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
 var (
@@ -141,7 +140,7 @@ func (o *GetOptions) Run() error {
 
 	table := newTable(o.Out)
 	for _, item := range kanaryList.Items {
-		data := []string{item.Namespace, item.Name, getStatus(&item), item.Spec.DeploymentName, item.Spec.ServiceName, getScale(&item), getTraffic(&item), getValidation(&item)}
+		data := []string{item.Namespace, item.Name, getStatus(&item), item.Spec.DeploymentName, item.Spec.ServiceName, getScale(&item), getTraffic(&item), getValidation(&item), getDuration(&item)}
 		table.Append(data)
 	}
 
@@ -151,35 +150,18 @@ func (o *GetOptions) Run() error {
 }
 
 func getScale(kd *v1alpha1.KanaryDeployment) string {
-	if kd.Spec.Scale.HPA == nil {
-		return "static"
-	}
-	return "hpa"
+	return kd.Status.Report.Scale
 }
 
 func getTraffic(kd *v1alpha1.KanaryDeployment) string {
-	return string(kd.Spec.Traffic.Source)
+	return kd.Status.Report.Traffic
 }
 
 func getValidation(kd *v1alpha1.KanaryDeployment) string {
-	if kd.Spec.Validation.LabelWatch != nil {
-		return "labelWatch"
-	}
-	if kd.Spec.Validation.PromQL != nil {
-		return "promQL"
-	}
-	if kd.Spec.Validation.Manual != nil {
-		return "manual"
-	}
-	return "unknow"
+	return kd.Status.Report.Validation
 }
 func getStatus(kd *v1alpha1.KanaryDeployment) string {
-	if utils.IsKanaryDeploymentSucceeded(&kd.Status) {
-		return "Succeeded"
-	} else if utils.IsKanaryDeploymentFailed(&kd.Status) {
-		return "Failed"
-	}
-	return fmt.Sprintf("Running (%s)", getDuration(kd))
+	return kd.Status.Report.Status
 }
 
 func getDuration(kd *v1alpha1.KanaryDeployment) string {
@@ -196,7 +178,7 @@ func getDuration(kd *v1alpha1.KanaryDeployment) string {
 
 func newTable(out io.Writer) *tablewriter.Table {
 	table := tablewriter.NewWriter(out)
-	table.SetHeader([]string{"Namespace", "Name", "Status", "Deployment", "Service", "Scale", "Traffic", "Validation"})
+	table.SetHeader([]string{"Namespace", "Name", "Status", "Deployment", "Service", "Scale", "Traffic", "Validation", "Duration"})
 	table.SetBorders(tablewriter.Border{Left: false, Top: false, Right: false, Bottom: false})
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetRowLine(false)
