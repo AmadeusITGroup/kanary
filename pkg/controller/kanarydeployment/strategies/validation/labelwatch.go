@@ -23,16 +23,18 @@ import (
 // NewLabelWatch returns new validation.LabelWatch instance
 func NewLabelWatch(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 	return &labelWatchImpl{
-		validationPeriod: s.ValidationPeriod,
-		dryRun:           s.NoUpdate,
-		config:           s.LabelWatch,
+		validationPeriod:  s.ValidationPeriod,
+		maxIntervalPeriod: s.MaxIntervalPeriod,
+		dryRun:            s.NoUpdate,
+		config:            s.LabelWatch,
 	}
 }
 
 type labelWatchImpl struct {
-	validationPeriod *metav1.Duration
-	dryRun           bool
-	config           *kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch
+	validationPeriod  *metav1.Duration
+	maxIntervalPeriod *metav1.Duration
+	dryRun            bool
+	config            *kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch
 }
 
 func (l *labelWatchImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
@@ -76,7 +78,7 @@ func (l *labelWatchImpl) Validation(kclient client.Client, reqLogger logr.Logger
 	var deadlineReached bool
 	if canaryDep != nil {
 		var requeueAfter time.Duration
-		requeueAfter, deadlineReached = isDeadlinePeriodDone(l.validationPeriod.Duration, canaryDep.CreationTimestamp.Time, time.Now())
+		requeueAfter, deadlineReached = isDeadlinePeriodDone(l.validationPeriod.Duration, l.maxIntervalPeriod.Duration, canaryDep.CreationTimestamp.Time, time.Now())
 		if !deadlineReached {
 			result.RequeueAfter = requeueAfter
 		}

@@ -131,6 +131,8 @@ type KanaryDeploymentSpecValidation struct {
 	InitialDelay *metav1.Duration `json:"initialDelay,omitempty"`
 	// ValidationPeriod validation checks duration.
 	ValidationPeriod *metav1.Duration `json:"validationPeriod,omitempty"`
+	// MaxIntervalPeriod max interval duration between two validation tentative
+	MaxIntervalPeriod *metav1.Duration `json:"maxIntervalPeriod,omitempty"`
 	// NoUpdate if set to true, the Deployment will no be updated after a succeed validation period.
 	NoUpdate   bool                                      `json:"noUpdate,omitempty"`
 	Manual     *KanaryDeploymentSpecValidationManual     `json:"manual,omitempty"`

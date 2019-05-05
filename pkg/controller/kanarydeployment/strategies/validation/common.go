@@ -13,18 +13,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func isDeadlinePeriodDone(validationPeriod time.Duration, startTime, now time.Time) (time.Duration, bool) {
+func isDeadlinePeriodDone(validationPeriod, maxRequeueDuration time.Duration, startTime, now time.Time) (time.Duration, bool) {
 	if startTime.Add(validationPeriod).Before(now) {
 		return time.Duration(0), true
 	}
-
-	return startTime.Add(validationPeriod).Sub(now), false
+	d := startTime.Add(validationPeriod).Sub(now)
+	if d-maxRequeueDuration > 0 {
+		return maxRequeueDuration, false
+	}
+	return d, false
 }
 
 // IsValidationDelayPeriodDone returns true if the InitialDelay validation periode is over.
 func IsValidationDelayPeriodDone(kd *v1alpha1.KanaryDeployment) (time.Duration, bool) {
 	now := time.Now()
-	return isDeadlinePeriodDone(kd.Spec.Validation.InitialDelay.Duration, kd.CreationTimestamp.Time, now)
+	return isDeadlinePeriodDone(kd.Spec.Validation.InitialDelay.Duration, kd.Spec.Validation.MaxIntervalPeriod.Duration, kd.CreationTimestamp.Time, now)
 }
 
 func getPods(kclient client.Client, reqLogger logr.Logger, KanaryDeploymentName, KanaryDeploymentNamespace string) ([]corev1.Pod, error) {

@@ -14,6 +14,7 @@ Kanary
 The goal of Kanary project is to bring full automation of Canary Deployment to kubernetes. So far only rolling update is automated and fully integrated to Kubernetes.  Using CRD (Custom Resource Definition) and an associated controller, this project will allow you to define your Canary deployment and chain it with a classic rolling update in case of success.
 
 The Kanary CRD allows you to define the 3 main blocks of a Canary Deployment:
+
 - The deployment of the canary instance
 - The traffic management toward your canary instance
 - The validation phase

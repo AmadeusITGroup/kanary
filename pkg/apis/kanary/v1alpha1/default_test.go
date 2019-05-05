@@ -41,6 +41,9 @@ func TestIsDefaultedKanaryDeployment(t *testing.T) {
 						InitialDelay: &metav1.Duration{
 							Duration: 5 * time.Minute,
 						},
+						MaxIntervalPeriod: &metav1.Duration{
+							Duration: 5 * time.Minute,
+						},
 						Manual: &KanaryDeploymentSpecValidationManual{
 							StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
 						},
@@ -117,6 +120,9 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 						InitialDelay: &metav1.Duration{
 							Duration: 0 * time.Minute,
 						},
+						MaxIntervalPeriod: &metav1.Duration{
+							Duration: 1 * time.Minute,
+						},
 						Manual: &KanaryDeploymentSpecValidationManual{
 							StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
 						},
@@ -144,6 +150,9 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 						InitialDelay: &metav1.Duration{
 							Duration: 5 * time.Minute,
 						},
+						MaxIntervalPeriod: &metav1.Duration{
+							Duration: 5 * time.Minute,
+						},
 						PromQL: &KanaryDeploymentSpecValidationPromQL{
 							Query:                    "foo",
 							ContinuousValueDeviation: &ContinuousValueDeviation{},
@@ -166,6 +175,9 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 							Duration: 30 * time.Minute,
 						},
 						InitialDelay: &metav1.Duration{
+							Duration: 5 * time.Minute,
+						},
+						MaxIntervalPeriod: &metav1.Duration{
 							Duration: 5 * time.Minute,
 						},
 						PromQL: &KanaryDeploymentSpecValidationPromQL{

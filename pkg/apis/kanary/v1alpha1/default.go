@@ -88,6 +88,10 @@ func IsDefaultedKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation
 		return false
 	}
 
+	if v.MaxIntervalPeriod == nil {
+		return false
+	}
+
 	if v.Manual == nil && v.LabelWatch == nil && v.PromQL == nil {
 		return false
 	}
@@ -214,6 +218,11 @@ func defaultKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation) {
 	if v.InitialDelay == nil {
 		v.InitialDelay = &metav1.Duration{
 			Duration: 0 * time.Minute,
+		}
+	}
+	if v.MaxIntervalPeriod == nil {
+		v.MaxIntervalPeriod = &metav1.Duration{
+			Duration: 1 * time.Minute,
 		}
 	}
 	if v.Manual == nil && v.LabelWatch == nil && v.PromQL == nil {
