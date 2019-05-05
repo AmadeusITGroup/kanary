@@ -217,6 +217,15 @@ type KanaryDeploymentStatus struct {
 	CurrentHash string `json:"currentHash,omitempty"`
 	// Represents the latest available observations of a kanarydeployment's current state.
 	Conditions []KanaryDeploymentCondition `json:"conditions,omitempty"`
+	// Report
+	Report KanaryDeploymentStatusReport `json:"report,omitempty"`
+}
+
+type KanaryDeploymentStatusReport struct {
+	Status     string `json:"status,omitempty"`
+	Validation string `json:"validation,omitempty"`
+	Scale      string `json:"scale,omitempty"`
+	Traffic    string `json:"traffic,omitempty"`
 }
 
 // DeploymentTemplate is the object that describes the deployment that will be created.
