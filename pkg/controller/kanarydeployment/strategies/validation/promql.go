@@ -20,13 +20,13 @@ import (
 )
 
 // NewPromql returns new validation.Manual instance
-func NewPromql(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
+func NewPromql(list *kanaryv1alpha1.KanaryDeploymentSpecValidationList, s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 
 	return &promqlImpl{
 		validationSpec:    *s.PromQL,
-		validationPeriod:  s.ValidationPeriod.Duration,
-		maxIntervalPeriod: s.MaxIntervalPeriod.Duration,
-		dryRun:            s.NoUpdate,
+		validationPeriod:  list.ValidationPeriod.Duration,
+		maxIntervalPeriod: list.MaxIntervalPeriod.Duration,
+		dryRun:            list.NoUpdate,
 	}
 }
 

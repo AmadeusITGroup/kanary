@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 
@@ -116,16 +117,22 @@ func getReportStatus(status *kanaryv1alpha1.KanaryDeploymentStatus) string {
 }
 
 func getValidation(kd *kanaryv1alpha1.KanaryDeployment) string {
-	if kd.Spec.Validation.LabelWatch != nil {
-		return "labelWatch"
+	var list []string
+	for _, v := range kd.Spec.Validations.Items {
+		if v.LabelWatch != nil {
+			list = append(list, "labelWatch")
+		}
+		if v.PromQL != nil {
+			list = append(list, "promQL")
+		}
+		if v.Manual != nil {
+			list = append(list, "manual")
+		}
 	}
-	if kd.Spec.Validation.PromQL != nil {
-		return "promQL"
+	if len(list) == 0 {
+		return "unknow"
 	}
-	if kd.Spec.Validation.Manual != nil {
-		return "manual"
-	}
-	return "unknow"
+	return strings.Join(list, ",")
 }
 
 func getScale(kd *kanaryv1alpha1.KanaryDeployment) string {

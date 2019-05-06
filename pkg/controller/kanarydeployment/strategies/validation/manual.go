@@ -19,13 +19,13 @@ import (
 )
 
 // NewManual returns new validation.Manual instance
-func NewManual(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
+func NewManual(list *kanaryv1alpha1.KanaryDeploymentSpecValidationList, s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 	return &manualImpl{
 		deadlineStatus:         s.Manual.StatusAfterDealine,
 		validationManualStatus: s.Manual.Status,
-		validationPeriod:       s.ValidationPeriod.Duration,
-		maxIntervalPeriod:      s.MaxIntervalPeriod.Duration,
-		dryRun:                 s.NoUpdate,
+		validationPeriod:       list.ValidationPeriod.Duration,
+		maxIntervalPeriod:      list.MaxIntervalPeriod.Duration,
+		dryRun:                 list.NoUpdate,
 	}
 }
 

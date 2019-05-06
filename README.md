@@ -115,8 +115,9 @@ spec:
   # ...
   validation:
     validationPeriod: 15m
-    manual:
-      statusAfterDeadline: <[valid,invalid,none]>
+    items:
+    - manual:
+        statusAfterDeadline: <[valid,invalid,none]>
       #status:
   # ...
 ```
@@ -131,9 +132,10 @@ spec:
   # ...
   validation:
     validationPeriod: 15m
-    labelWatch:
-      deploymentInvalidationLabels:
-        validation: "failed"
+    items:
+    - labelWatch:
+        deploymentInvalidationLabels:
+          validation: "failed"
   # ...
 ```
 
@@ -144,9 +146,10 @@ spec:
   # ...
   validation:
     validationPeriod: 15m
-    labelWatch:
-      podInvalidationLabels:
-        monitoring-alert: "high-cpu"
+    items:
+    - labelWatch:
+        podInvalidationLabels:
+          monitoring-alert: "high-cpu"
   # ...
 ```
 
@@ -174,8 +177,9 @@ spec:
   traffic:
     source: both
   validation:
-    manual:
-      statusAfterDeadline: none
+  items:
+    - manual:
+        statusAfterDeadline: none
   template:
     # deployment template
 ```

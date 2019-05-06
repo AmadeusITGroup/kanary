@@ -215,7 +215,7 @@ func (o *generateOptions) Run() error {
 			Template: v1alpha1.DeploymentTemplate{
 				Spec: dep.Spec,
 			},
-			Validation: v1alpha1.KanaryDeploymentSpecValidation{
+			Validations: v1alpha1.KanaryDeploymentSpecValidationList{
 				ValidationPeriod: &metav1.Duration{Duration: o.userValidationPeriod},
 			},
 		},
@@ -248,16 +248,16 @@ func (o *generateOptions) Run() error {
 	}
 
 	if o.userValidationLabelWatchDeployment == "" && o.userValidationLabelWatchPod == "" && o.userValidationPromQLQuery == "" {
-		newKanaryDeployment.Spec.Validation.Manual = &v1alpha1.KanaryDeploymentSpecValidationManual{}
+		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidation{Manual: &v1alpha1.KanaryDeploymentSpecValidationManual{}})
 	} else if o.userValidationLabelWatchPod != "" || o.userValidationLabelWatchDeployment != "" {
-		newKanaryDeployment.Spec.Validation.LabelWatch = &v1alpha1.KanaryDeploymentSpecValidationLabelWatch{}
+		newLabelWatch := &v1alpha1.KanaryDeploymentSpecValidationLabelWatch{}
 		if o.userValidationLabelWatchPod != "" {
 			var selector *metav1.LabelSelector
 			selector, err = metav1.ParseToLabelSelector(o.userValidationLabelWatchPod)
 			if err != nil {
 				return fmt.Errorf("unable to parse %s=%s, err:%v", argValidationLabelWatchPod, o.userValidationLabelWatchPod, err)
 			}
-			newKanaryDeployment.Spec.Validation.LabelWatch.PodInvalidationLabels = selector
+			newLabelWatch.PodInvalidationLabels = selector
 		}
 		if o.userValidationLabelWatchDeployment != "" {
 			var selector *metav1.LabelSelector
@@ -265,13 +265,15 @@ func (o *generateOptions) Run() error {
 			if err != nil {
 				return fmt.Errorf("unable to parse %s=%s, err:%v", argValidationLabelWatchDeployment, o.userValidationLabelWatchDeployment, err)
 			}
-			newKanaryDeployment.Spec.Validation.LabelWatch.DeploymentInvalidationLabels = selector
+			newLabelWatch.DeploymentInvalidationLabels = selector
 		}
+		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidation{LabelWatch: newLabelWatch})
+
 	} else if o.userValidationPromQLQuery != "" {
-		newKanaryDeployment.Spec.Validation.PromQL = &v1alpha1.KanaryDeploymentSpecValidationPromQL{
+		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidation{PromQL: &v1alpha1.KanaryDeploymentSpecValidationPromQL{
 			Query:             o.userValidationPromQLQuery,
 			PrometheusService: o.userValidationPromQLServer,
-		}
+		}})
 	}
 
 	newKanaryDeployment = v1alpha1.DefaultKanaryDeployment(newKanaryDeployment)

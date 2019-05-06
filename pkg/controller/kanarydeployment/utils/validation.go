@@ -12,7 +12,7 @@ func ValidateKanaryDeployment(kd *v1alpha1.KanaryDeployment) []error {
 	var errs []error
 	errs = append(errs, validateKanaryDeploymentSpecScale(&kd.Spec.Scale)...)
 	errs = append(errs, validateKanaryDeploymentSpecTraffic(&kd.Spec.Traffic)...)
-	errs = append(errs, validateKanaryDeploymentSpecValidation(&kd.Spec.Validation)...)
+	errs = append(errs, validateKanaryDeploymentSpecValidationList(&kd.Spec.Validations)...)
 	return errs
 }
 
@@ -39,6 +39,17 @@ func validateKanaryDeploymentSpecTraffic(t *v1alpha1.KanaryDeploymentSpecTraffic
 		errs = append(errs, fmt.Errorf("spec.traffic bad configuration, 'mirror' configuration provived, but 'source'=%s", t.Source))
 	}
 
+	return errs
+}
+
+func validateKanaryDeploymentSpecValidationList(list *v1alpha1.KanaryDeploymentSpecValidationList) []error {
+	var errs []error
+	if len(list.Items) == 0 {
+		return []error{fmt.Errorf("validation list is not set")}
+	}
+	for _, v := range list.Items {
+		errs = append(errs, validateKanaryDeploymentSpecValidation(&v)...)
+	}
 	return errs
 }
 

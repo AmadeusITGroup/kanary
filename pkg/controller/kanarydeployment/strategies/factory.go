@@ -55,19 +55,21 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 	default:
 	}
 
-	var validationImpl validation.Interface
-	if spec.Validation.Manual != nil {
-		validationImpl = validation.NewManual(&spec.Validation)
-	} else if spec.Validation.LabelWatch != nil {
-		validationImpl = validation.NewLabelWatch(&spec.Validation)
-	} else if spec.Validation.PromQL != nil {
-		validationImpl = validation.NewPromql(&spec.Validation)
+	var validationsImpls []validation.Interface
+	for _, v := range spec.Validations.Items {
+		if v.Manual != nil {
+			validationsImpls = append(validationsImpls, validation.NewManual(&spec.Validations, &v))
+		} else if v.LabelWatch != nil {
+			validationsImpls = append(validationsImpls, validation.NewLabelWatch(&spec.Validations, &v))
+		} else if v.PromQL != nil {
+			validationsImpls = append(validationsImpls, validation.NewPromql(&spec.Validations, &v))
+		}
 	}
 
 	return &strategy{
 		scale:               scaleImpls,
 		traffic:             trafficImpls,
-		validation:          validationImpl,
+		validations:         validationsImpls,
 		subResourceDisabled: os.Getenv(config.KanaryStatusSubresourceDisabledEnvVar) == "1",
 	}, nil
 }
@@ -75,7 +77,7 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 type strategy struct {
 	scale               map[scale.Interface]bool
 	traffic             map[traffic.Interface]bool
-	validation          validation.Interface
+	validations         []validation.Interface
 	subResourceDisabled bool
 }
 
@@ -151,9 +153,11 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 
 	if reaminingDelay, done := validation.IsValidationDelayPeriodDone(kd); done {
 		reqLogger.Info("Check Validation")
-		status, result, err = s.validation.Validation(kclient, reqLogger, kd, dep, canarydep)
-		if err != nil {
-			return status, result, fmt.Errorf("error during Validation processing, err: %v", err)
+		for _, validationItem := range s.validations {
+			status, result, err = validationItem.Validation(kclient, reqLogger, kd, dep, canarydep)
+			if err != nil {
+				return status, result, fmt.Errorf("error during Validation processing, err: %v", err)
+			}
 		}
 	} else {
 		reqLogger.Info("Check Validation", "requeue-initial-delay", reaminingDelay)

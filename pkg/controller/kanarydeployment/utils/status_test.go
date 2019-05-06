@@ -154,8 +154,10 @@ func Test_updateStatusWithReport(t *testing.T) {
 						Traffic: kanaryv1alpha1.KanaryDeploymentSpecTraffic{
 							Mirror: &kanaryv1alpha1.KanaryDeploymentSpecTrafficMirror{},
 						},
-						Validation: kanaryv1alpha1.KanaryDeploymentSpecValidation{
-							PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{},
+						Validations: kanaryv1alpha1.KanaryDeploymentSpecValidationList{
+							Items: []kanaryv1alpha1.KanaryDeploymentSpecValidation{
+								{PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{}},
+							},
 						},
 					},
 				},
@@ -179,8 +181,10 @@ func Test_updateStatusWithReport(t *testing.T) {
 						Traffic: kanaryv1alpha1.KanaryDeploymentSpecTraffic{
 							Mirror: &kanaryv1alpha1.KanaryDeploymentSpecTrafficMirror{},
 						},
-						Validation: kanaryv1alpha1.KanaryDeploymentSpecValidation{
-							LabelWatch: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{},
+						Validations: kanaryv1alpha1.KanaryDeploymentSpecValidationList{
+							Items: []kanaryv1alpha1.KanaryDeploymentSpecValidation{
+								{LabelWatch: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{}},
+							},
 						},
 					},
 				},
@@ -204,8 +208,10 @@ func Test_updateStatusWithReport(t *testing.T) {
 						Traffic: kanaryv1alpha1.KanaryDeploymentSpecTraffic{
 							Mirror: &kanaryv1alpha1.KanaryDeploymentSpecTrafficMirror{},
 						},
-						Validation: kanaryv1alpha1.KanaryDeploymentSpecValidation{
-							Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{},
+						Validations: kanaryv1alpha1.KanaryDeploymentSpecValidationList{
+							Items: []kanaryv1alpha1.KanaryDeploymentSpecValidation{
+								{Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{}},
+							},
 						},
 					},
 				},

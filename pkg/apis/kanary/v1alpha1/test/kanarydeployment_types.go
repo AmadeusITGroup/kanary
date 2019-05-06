@@ -34,7 +34,7 @@ func NewKanaryDeployment(name, namespace, serviceName string, replicas int32, op
 			kd.Spec.Traffic = *options.Traffic
 		}
 		if options.Validation != nil {
-			kd.Spec.Validation = *options.Validation
+			kd.Spec.Validations.Items = append(kd.Spec.Validations.Items, *options.Validation)
 		}
 		if options.Status != nil {
 			kd.Status = *options.Status

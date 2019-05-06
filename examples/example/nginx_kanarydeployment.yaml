@@ -13,8 +13,9 @@ spec:
   traffic:
     source: both
   validation:
-    manual:
-      statusAfterDeadline: none
+    items:
+    - manual:
+        statusAfterDeadline: none
   template:
     spec:
       replicas: 3

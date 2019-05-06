@@ -21,11 +21,11 @@ import (
 )
 
 // NewLabelWatch returns new validation.LabelWatch instance
-func NewLabelWatch(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
+func NewLabelWatch(list *kanaryv1alpha1.KanaryDeploymentSpecValidationList, s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 	return &labelWatchImpl{
-		validationPeriod:  s.ValidationPeriod,
-		maxIntervalPeriod: s.MaxIntervalPeriod,
-		dryRun:            s.NoUpdate,
+		validationPeriod:  list.ValidationPeriod,
+		maxIntervalPeriod: list.MaxIntervalPeriod,
+		dryRun:            list.NoUpdate,
 		config:            s.LabelWatch,
 	}
 }
