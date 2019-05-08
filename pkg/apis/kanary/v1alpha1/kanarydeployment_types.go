@@ -51,8 +51,8 @@ type KanaryDeploymentSpec struct {
 	Scale KanaryDeploymentSpecScale `json:"scale,omitempty"`
 	// Traffic is the scaling configuration for the canary deployment
 	Traffic KanaryDeploymentSpecTraffic `json:"traffic,omitempty"`
-	// Validation is the scaling configuration for the canary deployment
-	Validation KanaryDeploymentSpecValidation `json:"validation,omitempty"`
+	// Validations is the scaling configuration for the canary deployment
+	Validations KanaryDeploymentSpecValidationList `json:"validations,omitempty"`
 }
 
 // KanaryDeploymentSpecScale defines the scale configuration for the canary deployment
@@ -125,8 +125,8 @@ type KanaryDeploymentSpecTrafficMirror struct {
 	Activate bool `json:"activate"`
 }
 
-// KanaryDeploymentSpecValidation defines the validation configuration for the canary deployment
-type KanaryDeploymentSpecValidation struct {
+// KanaryDeploymentSpecValidationList define list of KanaryDeploymentSpecValidation
+type KanaryDeploymentSpecValidationList struct {
 	// InitialDelay duration after the KanaryDeployment has started before validation checks is started.
 	InitialDelay *metav1.Duration `json:"initialDelay,omitempty"`
 	// ValidationPeriod validation checks duration.
@@ -134,7 +134,13 @@ type KanaryDeploymentSpecValidation struct {
 	// MaxIntervalPeriod max interval duration between two validation tentative
 	MaxIntervalPeriod *metav1.Duration `json:"maxIntervalPeriod,omitempty"`
 	// NoUpdate if set to true, the Deployment will no be updated after a succeed validation period.
-	NoUpdate   bool                                      `json:"noUpdate,omitempty"`
+	NoUpdate bool `json:"noUpdate,omitempty"`
+	// Items list of KanaryDeploymentSpecValidation
+	Items []KanaryDeploymentSpecValidation `json:"items,omitempty"`
+}
+
+// KanaryDeploymentSpecValidation defines the validation configuration for the canary deployment
+type KanaryDeploymentSpecValidation struct {
 	Manual     *KanaryDeploymentSpecValidationManual     `json:"manual,omitempty"`
 	LabelWatch *KanaryDeploymentSpecValidationLabelWatch `json:"labelWatch,omitempty"`
 	PromQL     *KanaryDeploymentSpecValidationPromQL     `json:"promQL,omitempty"`

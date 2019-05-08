@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"k8s.io/api/autoscaling/v2beta1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,7 +33,7 @@ func TestIsDefaultedKanaryDeployment(t *testing.T) {
 					Traffic: KanaryDeploymentSpecTraffic{
 						Source: ServiceKanaryDeploymentSpecTrafficSource,
 					},
-					Validation: KanaryDeploymentSpecValidation{
+					Validations: KanaryDeploymentSpecValidationList{
 						ValidationPeriod: &metav1.Duration{
 							Duration: 15 * time.Minute,
 						},
@@ -44,8 +43,12 @@ func TestIsDefaultedKanaryDeployment(t *testing.T) {
 						MaxIntervalPeriod: &metav1.Duration{
 							Duration: 5 * time.Minute,
 						},
-						Manual: &KanaryDeploymentSpecValidationManual{
-							StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
+						Items: []KanaryDeploymentSpecValidation{
+							{
+								Manual: &KanaryDeploymentSpecValidationManual{
+									StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
+								},
+							},
 						},
 					},
 				},
@@ -64,17 +67,21 @@ func TestIsDefaultedKanaryDeployment(t *testing.T) {
 					Traffic: KanaryDeploymentSpecTraffic{
 						Source: ServiceKanaryDeploymentSpecTrafficSource,
 					},
-					Validation: KanaryDeploymentSpecValidation{
+					Validations: KanaryDeploymentSpecValidationList{
 						ValidationPeriod: &metav1.Duration{
 							Duration: 15 * time.Minute,
 						},
 						InitialDelay: &metav1.Duration{
 							Duration: 5 * time.Minute,
 						},
-						PromQL: &KanaryDeploymentSpecValidationPromQL{
-							PrometheusService:        "s",
-							PodNameKey:               "pod",
-							ContinuousValueDeviation: &ContinuousValueDeviation{},
+						Items: []KanaryDeploymentSpecValidation{
+							{
+								PromQL: &KanaryDeploymentSpecValidationPromQL{
+									PrometheusService:        "s",
+									PodNameKey:               "pod",
+									ContinuousValueDeviation: &ContinuousValueDeviation{},
+								},
+							},
 						},
 					},
 				},
@@ -113,7 +120,7 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 					Traffic: KanaryDeploymentSpecTraffic{
 						Source: NoneKanaryDeploymentSpecTrafficSource,
 					},
-					Validation: KanaryDeploymentSpecValidation{
+					Validations: KanaryDeploymentSpecValidationList{
 						ValidationPeriod: &metav1.Duration{
 							Duration: 15 * time.Minute,
 						},
@@ -123,8 +130,12 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 						MaxIntervalPeriod: &metav1.Duration{
 							Duration: 1 * time.Minute,
 						},
-						Manual: &KanaryDeploymentSpecValidationManual{
-							StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
+						Items: []KanaryDeploymentSpecValidation{
+							{
+								Manual: &KanaryDeploymentSpecValidationManual{
+									StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
+								},
+							},
 						},
 					},
 				},
@@ -143,7 +154,7 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 					Traffic: KanaryDeploymentSpecTraffic{
 						Source: KanaryServiceKanaryDeploymentSpecTrafficSource,
 					},
-					Validation: KanaryDeploymentSpecValidation{
+					Validations: KanaryDeploymentSpecValidationList{
 						ValidationPeriod: &metav1.Duration{
 							Duration: 30 * time.Minute,
 						},
@@ -153,9 +164,13 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 						MaxIntervalPeriod: &metav1.Duration{
 							Duration: 5 * time.Minute,
 						},
-						PromQL: &KanaryDeploymentSpecValidationPromQL{
-							Query:                    "foo",
-							ContinuousValueDeviation: &ContinuousValueDeviation{},
+						Items: []KanaryDeploymentSpecValidation{
+							{
+								PromQL: &KanaryDeploymentSpecValidationPromQL{
+									Query:                    "foo",
+									ContinuousValueDeviation: &ContinuousValueDeviation{},
+								},
+							},
 						},
 					},
 				},
@@ -170,7 +185,7 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 					Traffic: KanaryDeploymentSpecTraffic{
 						Source: KanaryServiceKanaryDeploymentSpecTrafficSource,
 					},
-					Validation: KanaryDeploymentSpecValidation{
+					Validations: KanaryDeploymentSpecValidationList{
 						ValidationPeriod: &metav1.Duration{
 							Duration: 30 * time.Minute,
 						},
@@ -180,12 +195,16 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 						MaxIntervalPeriod: &metav1.Duration{
 							Duration: 5 * time.Minute,
 						},
-						PromQL: &KanaryDeploymentSpecValidationPromQL{
-							PrometheusService: "prometheus:9090",
-							Query:             "foo",
-							PodNameKey:        "pod",
-							ContinuousValueDeviation: &ContinuousValueDeviation{
-								MaxDeviationPercent: NewFloat64(10),
+						Items: []KanaryDeploymentSpecValidation{
+							{
+								PromQL: &KanaryDeploymentSpecValidationPromQL{
+									PrometheusService: "prometheus:9090",
+									Query:             "foo",
+									PodNameKey:        "pod",
+									ContinuousValueDeviation: &ContinuousValueDeviation{
+										MaxDeviationPercent: NewFloat64(10),
+									},
+								},
 							},
 						},
 					},
@@ -281,6 +300,69 @@ func TestIsDefaultedKanaryDeploymentSpecScale(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsDefaultedKanaryDeploymentSpecScale(tt.args.scale); got != tt.want {
 				t.Errorf("IsDefaultedKanaryDeploymentSpecScale() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_defaultKanaryDeploymentSpecValidationList(t *testing.T) {
+	tests := []struct {
+		name string
+		list *KanaryDeploymentSpecValidationList
+		want *KanaryDeploymentSpecValidationList
+	}{
+		{
+			name: "nil list",
+			list: &KanaryDeploymentSpecValidationList{},
+			want: &KanaryDeploymentSpecValidationList{
+				ValidationPeriod: &metav1.Duration{
+					Duration: 15 * time.Minute,
+				},
+				InitialDelay: &metav1.Duration{
+					Duration: 0 * time.Minute,
+				},
+				MaxIntervalPeriod: &metav1.Duration{
+					Duration: 1 * time.Minute,
+				},
+				Items: []KanaryDeploymentSpecValidation{
+					{
+						Manual: &KanaryDeploymentSpecValidationManual{
+							StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one element not defaulted",
+			list: &KanaryDeploymentSpecValidationList{
+				Items: []KanaryDeploymentSpecValidation{{}},
+			},
+			want: &KanaryDeploymentSpecValidationList{
+				ValidationPeriod: &metav1.Duration{
+					Duration: 15 * time.Minute,
+				},
+				InitialDelay: &metav1.Duration{
+					Duration: 0 * time.Minute,
+				},
+				MaxIntervalPeriod: &metav1.Duration{
+					Duration: 1 * time.Minute,
+				},
+				Items: []KanaryDeploymentSpecValidation{
+					{
+						Manual: &KanaryDeploymentSpecValidationManual{
+							StatusAfterDealine: NoneKanaryDeploymentSpecValidationManualDeadineStatus,
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defaultKanaryDeploymentSpecValidationList(tt.list)
+			if !reflect.DeepEqual(tt.list, tt.want) {
+				t.Errorf("defaultKanaryDeploymentSpecValidationList() = %#v, want %#v", tt.list, tt.want)
 			}
 		})
 	}

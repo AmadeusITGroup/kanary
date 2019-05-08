@@ -75,14 +75,18 @@ func PromqlInvalidation(t *testing.T) {
 	GenerateMetrics(t, f, testTerminated, namespace, metav1.ListOptions{LabelSelector: "app=" + name}, true, false)
 
 	//Create the Kanary Deployment
-	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
+	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidationList{
 		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
 		InitialDelay:     &metav1.Duration{Duration: 5 * time.Second},
-		PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{
-			PrometheusService: "prometheus",
-			Query:             "(rate(mymetric_sum[10s])/rate(mymetric_count[10s]) and delta(mymetric_count[10s])>3)/scalar(sum(rate(mymetric_sum{kanary_k8s_io_canary_pod=\"false\"}[10s]))/sum(rate(mymetric_count{kanary_k8s_io_canary_pod=\"false\"}[10s])))",
-			ContinuousValueDeviation: &kanaryv1alpha1.ContinuousValueDeviation{
-				MaxDeviationPercent: v1alpha1.NewFloat64(33),
+		Items: []kanaryv1alpha1.KanaryDeploymentSpecValidation{
+			{
+				PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{
+					PrometheusService: "prometheus",
+					Query:             "(rate(mymetric_sum[10s])/rate(mymetric_count[10s]) and delta(mymetric_count[10s])>3)/scalar(sum(rate(mymetric_sum{kanary_k8s_io_canary_pod=\"false\"}[10s]))/sum(rate(mymetric_count{kanary_k8s_io_canary_pod=\"false\"}[10s])))",
+					ContinuousValueDeviation: &kanaryv1alpha1.ContinuousValueDeviation{
+						MaxDeviationPercent: v1alpha1.NewFloat64(33),
+					},
+				},
 			},
 		},
 	}

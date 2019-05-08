@@ -23,7 +23,7 @@ func IsDefaultedKanaryDeployment(kd *KanaryDeployment) bool {
 	if !IsDefaultedKanaryDeploymentSpecTraffic(&kd.Spec.Traffic) {
 		return false
 	}
-	if !IsDefaultedKanaryDeploymentSpecValidation(&kd.Spec.Validation) {
+	if !IsDefaultedKanaryDeploymentSpecValidationList(&kd.Spec.Validations) {
 		return false
 	}
 
@@ -79,19 +79,38 @@ func IsDefaultedKanaryDeploymentSpecTraffic(t *KanaryDeploymentSpecTraffic) bool
 
 // IsDefaultedKanaryDeploymentSpecValidation used to know if a KanaryDeploymentSpecValidation is already defaulted
 // returns true if yes, else no
+func IsDefaultedKanaryDeploymentSpecValidationList(list *KanaryDeploymentSpecValidationList) bool {
+	if list.ValidationPeriod == nil {
+		return false
+	}
+
+	if list.InitialDelay == nil {
+		return false
+	}
+
+	if list.MaxIntervalPeriod == nil {
+		return false
+	}
+
+	if list.Items == nil {
+		return false
+	}
+	if len(list.Items) == 0 {
+		return false
+	}
+
+	for _, v := range list.Items {
+		if isInit := IsDefaultedKanaryDeploymentSpecValidation(&v); !isInit {
+			return false
+		}
+	}
+
+	return true
+}
+
+// IsDefaultedKanaryDeploymentSpecValidation used to know if a KanaryDeploymentSpecValidation is already defaulted
+// returns true if yes, else no
 func IsDefaultedKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation) bool {
-	if v.ValidationPeriod == nil {
-		return false
-	}
-
-	if v.InitialDelay == nil {
-		return false
-	}
-
-	if v.MaxIntervalPeriod == nil {
-		return false
-	}
-
 	if v.Manual == nil && v.LabelWatch == nil && v.PromQL == nil {
 		return false
 	}
@@ -149,7 +168,7 @@ func DefaultKanaryDeployment(kd *KanaryDeployment) *KanaryDeployment {
 func defaultKanaryDeploymentSpec(spec *KanaryDeploymentSpec) {
 	defaultKanaryDeploymentSpecScale(&spec.Scale)
 	defaultKanaryDeploymentSpecTraffic(&spec.Traffic)
-	defaultKanaryDeploymentSpecValidation(&spec.Validation)
+	defaultKanaryDeploymentSpecValidationList(&spec.Validations)
 }
 
 func defaultKanaryDeploymentSpecScale(s *KanaryDeploymentSpecScale) {
@@ -209,22 +228,38 @@ func defaultKanaryDeploymentSpecScaleTrafficMirror(t *KanaryDeploymentSpecTraffi
 	// TODO nothing todo for the moment
 }
 
-func defaultKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation) {
-	if v.ValidationPeriod == nil {
-		v.ValidationPeriod = &metav1.Duration{
+func defaultKanaryDeploymentSpecValidationList(list *KanaryDeploymentSpecValidationList) {
+	if list == nil {
+		return
+	}
+	if list.ValidationPeriod == nil {
+		list.ValidationPeriod = &metav1.Duration{
 			Duration: 15 * time.Minute,
 		}
 	}
-	if v.InitialDelay == nil {
-		v.InitialDelay = &metav1.Duration{
+	if list.InitialDelay == nil {
+		list.InitialDelay = &metav1.Duration{
 			Duration: 0 * time.Minute,
 		}
 	}
-	if v.MaxIntervalPeriod == nil {
-		v.MaxIntervalPeriod = &metav1.Duration{
+	if list.MaxIntervalPeriod == nil {
+		list.MaxIntervalPeriod = &metav1.Duration{
 			Duration: 1 * time.Minute,
 		}
 	}
+
+	if list.Items == nil || len(list.Items) == 0 {
+		list.Items = []KanaryDeploymentSpecValidation{
+			{},
+		}
+	}
+	for id, value := range list.Items {
+		defaultKanaryDeploymentSpecValidation(&value)
+		list.Items[id] = value
+	}
+}
+
+func defaultKanaryDeploymentSpecValidation(v *KanaryDeploymentSpecValidation) {
 	if v.Manual == nil && v.LabelWatch == nil && v.PromQL == nil {
 		defaultKanaryDeploymentSpecScaleValidationManual(v)
 	}

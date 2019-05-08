@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -14,18 +13,16 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
-	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
 // NewLabelWatch returns new validation.LabelWatch instance
-func NewLabelWatch(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
+func NewLabelWatch(list *kanaryv1alpha1.KanaryDeploymentSpecValidationList, s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 	return &labelWatchImpl{
-		validationPeriod:  s.ValidationPeriod,
-		maxIntervalPeriod: s.MaxIntervalPeriod,
-		dryRun:            s.NoUpdate,
+		validationPeriod:  list.ValidationPeriod,
+		maxIntervalPeriod: list.MaxIntervalPeriod,
+		dryRun:            list.NoUpdate,
 		config:            s.LabelWatch,
 	}
 }
@@ -37,21 +34,21 @@ type labelWatchImpl struct {
 	config            *kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch
 }
 
-func (l *labelWatchImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
-	status = kd.Status.DeepCopy()
-	var needUpdateDeployment bool
+func (l *labelWatchImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (*Result, error) {
+	var err error
+	result := &Result{}
 	// By default a Deployement is valid until a Label is discovered on pod or deployment.
-	validationStatus := true
+	isSucceed := true
 
 	if l.config.DeploymentInvalidationLabels != nil {
 		var selector labels.Selector
 		selector, err = metav1.LabelSelectorAsSelector(l.config.DeploymentInvalidationLabels)
 		if err != nil {
 			// TODO improve error handling
-			return
+			return result, err
 		}
 		if selector.Matches(labels.Set(canaryDep.Labels)) {
-			validationStatus = false
+			isSucceed = false
 		}
 	}
 
@@ -60,16 +57,16 @@ func (l *labelWatchImpl) Validation(kclient client.Client, reqLogger logr.Logger
 		var selector labels.Selector
 		selector, err = metav1.LabelSelectorAsSelector(l.config.PodInvalidationLabels)
 		if err != nil {
-			return status, result, fmt.Errorf("unable to create the label selector from PodInvalidationLabels: %v", err)
+			return result, fmt.Errorf("unable to create the label selector from PodInvalidationLabels: %v", err)
 		}
 		var pods []corev1.Pod
 		pods, err = getPods(kclient, reqLogger, kd.Name, kd.Namespace)
 		if err != nil {
-			return status, result, fmt.Errorf("unable to list pods: %v", err)
+			return result, fmt.Errorf("unable to list pods: %v", err)
 		}
 		for _, pod := range pods {
 			if selector.Matches(labels.Set(pod.Labels)) {
-				validationStatus = false
+				isSucceed = false
 				break
 			}
 		}
@@ -82,31 +79,15 @@ func (l *labelWatchImpl) Validation(kclient client.Client, reqLogger logr.Logger
 		if !deadlineReached {
 			result.RequeueAfter = requeueAfter
 		}
-		if deadlineReached && validationStatus {
-			needUpdateDeployment = true
+		if deadlineReached && isSucceed {
+			result.NeedUpdateDeployment = true
 		}
 	}
 
-	if needUpdateDeployment && !l.dryRun {
-		var newDep *appsv1beta1.Deployment
-		newDep, err = utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
-		if err != nil {
-			reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
-			return status, result, err
-		}
-		err = kclient.Update(context.TODO(), newDep)
-		if err != nil {
-			reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name, "newDep", *newDep)
-			return status, result, err
-		}
+	if !isSucceed {
+		result.IsFailed = true
+		result.Comment = "labelWatch has detected invalidation labels"
 	}
 
-	if validationStatus && needUpdateDeployment {
-		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
-	}
-
-	if !validationStatus {
-		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, "KanaryDeployment failed, labelWatch has detected invalidation labels")
-	}
-	return status, result, err
+	return result, err
 }

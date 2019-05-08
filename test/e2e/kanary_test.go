@@ -103,7 +103,11 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	}
 
 	// Init KanaryDeployment with defaulted Strategy (desactiviated)
-	newKD := utils.NewKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, nil)
+	validationSpec := &kanaryv1alpha1.KanaryDeploymentSpecValidationList{
+		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
+	}
+
+	newKD := utils.NewKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, validationSpec)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -114,13 +118,14 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	// valid the kanaryDeployment
 	err = utils.UpdateKanaryDeploymentFunc(f, namespace, name, func(k *kanaryv1alpha1.KanaryDeployment) {
-		if k.Spec.Validation.Manual == nil {
-			k.Spec.Validation.Manual = &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{}
+		for id, item := range k.Spec.Validations.Items {
+			if item.Manual != nil {
+				item.Manual.Status = kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus
+				k.Spec.Validations.Items[id] = item
+			}
 		}
-		k.Spec.Validation.Manual.Status = kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus
 	}, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
@@ -173,10 +178,14 @@ func ManualValidationAfterDeadline(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
+	validationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidationList{
 		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
-		Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
-			StatusAfterDealine: kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus,
+		Items: []kanaryv1alpha1.KanaryDeploymentSpecValidation{
+			{
+				Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
+					StatusAfterDealine: kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus,
+				},
+			},
 		},
 	}
 	newKD := utils.NewKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, validationConfig)
@@ -245,10 +254,14 @@ func ManualInvalidationAfterDeadline(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	invalidationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
+	invalidationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidationList{
 		ValidationPeriod: &metav1.Duration{Duration: 50 * time.Second},
-		Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
-			StatusAfterDealine: kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus,
+		Items: []kanaryv1alpha1.KanaryDeploymentSpecValidation{
+			{
+				Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
+					StatusAfterDealine: kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus,
+				},
+			},
 		},
 	}
 	trafficConfig := &kanaryv1alpha1.KanaryDeploymentSpecTraffic{
@@ -321,10 +334,14 @@ func InvalidationWithDeploymentLabels(t *testing.T) {
 
 	mapFailed := map[string]string{"failed": "true"}
 
-	invalidationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidation{
+	invalidationConfig := &kanaryv1alpha1.KanaryDeploymentSpecValidationList{
 		ValidationPeriod: &metav1.Duration{Duration: 2 * time.Minute},
-		LabelWatch: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
-			DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
+		Items: []kanaryv1alpha1.KanaryDeploymentSpecValidation{
+			{
+				LabelWatch: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
+					DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
+				},
+			},
 		},
 	}
 	trafficConfig := &kanaryv1alpha1.KanaryDeploymentSpecTraffic{

@@ -27,7 +27,7 @@ func isDeadlinePeriodDone(validationPeriod, maxRequeueDuration time.Duration, st
 // IsValidationDelayPeriodDone returns true if the InitialDelay validation periode is over.
 func IsValidationDelayPeriodDone(kd *v1alpha1.KanaryDeployment) (time.Duration, bool) {
 	now := time.Now()
-	return isDeadlinePeriodDone(kd.Spec.Validation.InitialDelay.Duration, kd.Spec.Validation.MaxIntervalPeriod.Duration, kd.CreationTimestamp.Time, now)
+	return isDeadlinePeriodDone(kd.Spec.Validations.InitialDelay.Duration, kd.Spec.Validations.MaxIntervalPeriod.Duration, kd.CreationTimestamp.Time, now)
 }
 
 func getPods(kclient client.Client, reqLogger logr.Logger, KanaryDeploymentName, KanaryDeploymentNamespace string) ([]corev1.Pod, error) {

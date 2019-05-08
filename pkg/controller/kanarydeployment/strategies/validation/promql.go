@@ -8,25 +8,22 @@ import (
 
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/anomalydetector"
-	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
 // NewPromql returns new validation.Manual instance
-func NewPromql(s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
+func NewPromql(list *kanaryv1alpha1.KanaryDeploymentSpecValidationList, s *kanaryv1alpha1.KanaryDeploymentSpecValidation) Interface {
 
 	return &promqlImpl{
 		validationSpec:    *s.PromQL,
-		validationPeriod:  s.ValidationPeriod.Duration,
-		maxIntervalPeriod: s.MaxIntervalPeriod.Duration,
-		dryRun:            s.NoUpdate,
+		validationPeriod:  list.ValidationPeriod.Duration,
+		maxIntervalPeriod: list.MaxIntervalPeriod.Duration,
+		dryRun:            list.NoUpdate,
 	}
 }
 
@@ -109,26 +106,24 @@ func (p *promqlImpl) initAnomalyDetector(kclient client.Client, reqLogger logr.L
 	return nil
 }
 
-func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
+func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (*Result, error) {
+	var err error
+	result := &Result{}
 
-	status = kd.Status.DeepCopy()
 	//re-init the anomaly detector at each validation in case some settings have changed in the kd
 	if err = p.initAnomalyDetector(kclient, reqLogger, kd, dep, canaryDep); err != nil {
-		return status, result, err
+		return result, err
 	}
-
-	var needUpdateDeployment bool
 	// By default a Deployement is valid until a Label is discovered on pod or deployment.
-	validationStatus := true
 
 	pods, err := p.anomalydetector.GetPodsOutOfBounds()
 	if err != nil {
-		return status, result, err
+		return result, err
 	}
 
 	//Check if at least one kanary pod was detected by anomaly detector
 	if len(pods) > 0 {
-		validationStatus = false
+		result.IsFailed = true
 	}
 
 	var deadlineReached bool
@@ -138,31 +133,14 @@ func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 		if !deadlineReached {
 			result.RequeueAfter = requeueAfter
 		}
-		if deadlineReached && validationStatus {
-			needUpdateDeployment = true
+		if deadlineReached && !result.IsFailed {
+			result.NeedUpdateDeployment = true
 		}
 	}
 
-	if needUpdateDeployment && !p.dryRun {
-		var newDep *appsv1beta1.Deployment
-		newDep, err = utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
-		if err != nil {
-			reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
-			return status, result, err
-		}
-		err = kclient.Update(context.TODO(), newDep)
-		if err != nil {
-			reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name, "newDep", *newDep)
-			return status, result, err
-		}
+	if result.IsFailed {
+		result.Comment = "promQL query reported an issue with one of the kanary pod"
 	}
 
-	if validationStatus && needUpdateDeployment {
-		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
-	}
-
-	if !validationStatus {
-		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, "KanaryDeployment failed, promQL query reported an issue with one of the kanary pod")
-	}
-	return status, result, err
+	return result, err
 }

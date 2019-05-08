@@ -77,7 +77,7 @@ func newDeploymentSpec(name, image, tag string, command []string, replicas int32
 }
 
 //NewKanaryDeployment create a new Kanary Deployments CR
-func NewKanaryDeployment(namespace, name, deploymentName, serviceName, image, tag string, command []string, replicas int32, scale *kanaryv1alpha1.KanaryDeploymentSpecScale, traffic *kanaryv1alpha1.KanaryDeploymentSpecTraffic, validation *kanaryv1alpha1.KanaryDeploymentSpecValidation) *kanaryv1alpha1.KanaryDeployment {
+func NewKanaryDeployment(namespace, name, deploymentName, serviceName, image, tag string, command []string, replicas int32, scale *kanaryv1alpha1.KanaryDeploymentSpecScale, traffic *kanaryv1alpha1.KanaryDeploymentSpecTraffic, validation *kanaryv1alpha1.KanaryDeploymentSpecValidationList) *kanaryv1alpha1.KanaryDeployment {
 	kd := &kanaryv1alpha1.KanaryDeployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "KanaryDeployment",
@@ -103,7 +103,7 @@ func NewKanaryDeployment(namespace, name, deploymentName, serviceName, image, ta
 		kd.Spec.Traffic = *traffic
 	}
 	if validation != nil {
-		kd.Spec.Validation = *validation
+		kd.Spec.Validations = *validation
 	}
 
 	return kd

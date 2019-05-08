@@ -1,14 +1,18 @@
 package strategies
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
 
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -55,19 +59,21 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 	default:
 	}
 
-	var validationImpl validation.Interface
-	if spec.Validation.Manual != nil {
-		validationImpl = validation.NewManual(&spec.Validation)
-	} else if spec.Validation.LabelWatch != nil {
-		validationImpl = validation.NewLabelWatch(&spec.Validation)
-	} else if spec.Validation.PromQL != nil {
-		validationImpl = validation.NewPromql(&spec.Validation)
+	var validationsImpls []validation.Interface
+	for _, v := range spec.Validations.Items {
+		if v.Manual != nil {
+			validationsImpls = append(validationsImpls, validation.NewManual(&spec.Validations, &v))
+		} else if v.LabelWatch != nil {
+			validationsImpls = append(validationsImpls, validation.NewLabelWatch(&spec.Validations, &v))
+		} else if v.PromQL != nil {
+			validationsImpls = append(validationsImpls, validation.NewPromql(&spec.Validations, &v))
+		}
 	}
 
 	return &strategy{
 		scale:               scaleImpls,
 		traffic:             trafficImpls,
-		validation:          validationImpl,
+		validations:         validationsImpls,
 		subResourceDisabled: os.Getenv(config.KanaryStatusSubresourceDisabledEnvVar) == "1",
 	}, nil
 }
@@ -75,7 +81,7 @@ func NewStrategy(spec *kanaryv1alpha1.KanaryDeploymentSpec) (Interface, error) {
 type strategy struct {
 	scale               map[scale.Interface]bool
 	traffic             map[traffic.Interface]bool
-	validation          validation.Interface
+	validations         []validation.Interface
 	subResourceDisabled bool
 }
 
@@ -151,9 +157,40 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 
 	if reaminingDelay, done := validation.IsValidationDelayPeriodDone(kd); done {
 		reqLogger.Info("Check Validation")
-		status, result, err = s.validation.Validation(kclient, reqLogger, kd, dep, canarydep)
-		if err != nil {
-			return status, result, fmt.Errorf("error during Validation processing, err: %v", err)
+		var results []*validation.Result
+		var errs []error
+		for _, validationItem := range s.validations {
+			var result *validation.Result
+			result, err = validationItem.Validation(kclient, reqLogger, kd, dep, canarydep)
+			if err != nil {
+				errs = append(errs, err)
+			}
+			results = append(results, result)
+		}
+		if len(errs) > 0 {
+			return &kd.Status, reconcile.Result{Requeue: true}, utilerrors.NewAggregate(errs)
+		}
+		var needUpdateDeployment bool
+		var failed bool
+		status, result, failed, needUpdateDeployment = computeStatus(results, status)
+		if needReturn(&result) {
+			return status, result, nil
+		}
+		if !failed && needUpdateDeployment && !kd.Spec.Validations.NoUpdate {
+			var newDep *appsv1beta1.Deployment
+			newDep, err = utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
+			if err != nil {
+				reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
+				return status, result, err
+			}
+			err = kclient.Update(context.TODO(), newDep)
+			if err != nil {
+				reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name, "newDep", *newDep)
+				return status, result, err
+			}
+		}
+		if needUpdateDeployment && !failed {
+			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
 		}
 	} else {
 		reqLogger.Info("Check Validation", "requeue-initial-delay", reaminingDelay)
@@ -162,6 +199,41 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 	}
 
 	return status, result, err
+}
+
+func computeStatus(results []*validation.Result, status *kanaryv1alpha1.KanaryDeploymentStatus) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, bool, bool) {
+	newStatus := status.DeepCopy()
+	newResult := reconcile.Result{}
+	isFailed := false
+	needUpdateDeployment := true
+	if len(results) == 0 {
+		return newStatus, newResult, isFailed, needUpdateDeployment
+	}
+
+	comments := []string{}
+	for _, result := range results {
+		if result.IsFailed {
+			isFailed = true
+		}
+		if !result.NeedUpdateDeployment {
+			needUpdateDeployment = false
+		}
+		if result.Comment == "" {
+			comments = append(comments, result.Comment)
+		}
+		if result.Requeue {
+			newResult.Requeue = true
+		}
+		if newResult.RequeueAfter == 0 {
+			newResult.RequeueAfter = result.RequeueAfter
+		} else if newResult.RequeueAfter != 0 && result.RequeueAfter < newResult.RequeueAfter {
+			newResult.RequeueAfter = result.RequeueAfter
+		}
+	}
+	if isFailed {
+		utils.UpdateKanaryDeploymentStatusCondition(newStatus, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, fmt.Sprintf("KanaryDeployment failed, %s", strings.Join(comments, ",")))
+	}
+	return newStatus, newResult, isFailed, needUpdateDeployment
 }
 
 func needReturn(result *reconcile.Result) bool {

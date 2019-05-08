@@ -5,23 +5,20 @@ import (
 	"testing"
 	"time"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-
-	"k8s.io/client-go/kubernetes/scheme"
+	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	kanaryv1alpha1test "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1/test"
+	utilstest "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/test"
 
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"k8s.io/client-go/kubernetes/scheme"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
-	kanaryv1alpha1test "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1/test"
-	utilstest "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/test"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 func Test_manualImpl_Validation(t *testing.T) {
@@ -52,9 +49,11 @@ func Test_manualImpl_Validation(t *testing.T) {
 	)
 
 	type fields struct {
-		deadline         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadineStatus
-		status           kanaryv1alpha1.KanaryDeploymentSpecValidationManualStatus
-		validationPeriod time.Duration
+		deadlineStatus         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadineStatus
+		validationManualStatus kanaryv1alpha1.KanaryDeploymentSpecValidationManualStatus
+		validationPeriod       time.Duration
+		maxIntervalPeriod      time.Duration
+		dryRun                 bool
 	}
 	type args struct {
 		kclient   client.Client
@@ -63,15 +62,12 @@ func Test_manualImpl_Validation(t *testing.T) {
 		canaryDep *appsv1beta1.Deployment
 	}
 	tests := []struct {
-		name              string
-		fields            fields
-		args              args
-		wantStatusSucceed bool
-		wantStatusInvalid bool
-		wantResult        reconcile.Result
-		wantErr           bool
+		name    string
+		fields  fields
+		args    args
+		want    *Result
+		wantErr bool
 	}{
-
 		{
 			name: "default manual validation spec",
 			args: args{
@@ -80,16 +76,16 @@ func Test_manualImpl_Validation(t *testing.T) {
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
 			},
-			wantStatusSucceed: false,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			want: &Result{
+				IsFailed: false,
+			},
+			wantErr: false,
 		},
-
 		{
 			name: "validation manual validated",
 			fields: fields{
-				deadline: kanaryv1alpha1.NoneKanaryDeploymentSpecValidationManualDeadineStatus,
-				status:   kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus,
+				deadlineStatus:         kanaryv1alpha1.NoneKanaryDeploymentSpecValidationManualDeadineStatus,
+				validationManualStatus: kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus,
 			},
 			args: args{
 				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
@@ -100,15 +96,17 @@ func Test_manualImpl_Validation(t *testing.T) {
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
 				}...),
 			},
-			wantStatusSucceed: true,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			want: &Result{
+				IsFailed:             false,
+				NeedUpdateDeployment: true,
+			},
+			wantErr: false,
 		},
 		{
 			name: "validation manual invalidated",
 			fields: fields{
-				deadline: kanaryv1alpha1.NoneKanaryDeploymentSpecValidationManualDeadineStatus,
-				status:   kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualStatus,
+				deadlineStatus:         kanaryv1alpha1.NoneKanaryDeploymentSpecValidationManualDeadineStatus,
+				validationManualStatus: kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualStatus,
 			},
 			args: args{
 				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
@@ -119,17 +117,19 @@ func Test_manualImpl_Validation(t *testing.T) {
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
 				}...),
 			},
-			wantStatusSucceed: false,
-			wantStatusInvalid: true,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			want: &Result{
+				IsFailed:             true,
+				NeedUpdateDeployment: false,
+				Comment:              "manual.status=invalid",
+			},
+			wantErr: false,
 		},
 		{
 			name: "validation manual with deadline validated",
 			fields: fields{
-				deadline:         kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus,
-				status:           "",
-				validationPeriod: 15 * time.Minute,
+				deadlineStatus:         kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus,
+				validationManualStatus: "",
+				validationPeriod:       15 * time.Minute,
 			},
 			args: args{
 				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{StartTime: &creationTime, Validation: validatedManualSpec}),
@@ -140,16 +140,19 @@ func Test_manualImpl_Validation(t *testing.T) {
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
 				}...),
 			},
-			wantStatusSucceed: true,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			want: &Result{
+				IsFailed:             false,
+				NeedUpdateDeployment: true,
+				Comment:              "deadline activated with 'valid' status",
+			},
+			wantErr: false,
 		},
 		{
 			name: "validation manual with deadline invalidated",
 			fields: fields{
-				deadline:         kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus,
-				status:           "",
-				validationPeriod: 15 * time.Minute,
+				deadlineStatus:         kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus,
+				validationManualStatus: "",
+				validationPeriod:       15 * time.Minute,
 			},
 			args: args{
 				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{StartTime: &creationTime, Validation: validatedManualSpec}),
@@ -160,46 +163,31 @@ func Test_manualImpl_Validation(t *testing.T) {
 					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
 				}...),
 			},
-			wantStatusInvalid: true,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			want: &Result{
+				IsFailed:             true,
+				NeedUpdateDeployment: false,
+				Comment:              "deadline activated with 'invalid' status",
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reqLogger := log.WithValues("test:", tt.name)
 			m := &manualImpl{
-				deadlineStatus:         tt.fields.deadline,
-				validationManualStatus: tt.fields.status,
+				deadlineStatus:         tt.fields.deadlineStatus,
+				validationManualStatus: tt.fields.validationManualStatus,
 				validationPeriod:       tt.fields.validationPeriod,
+				maxIntervalPeriod:      tt.fields.maxIntervalPeriod,
+				dryRun:                 tt.fields.dryRun,
 			}
-
-			gotStatus, gotResult, err := m.Validation(tt.args.kclient, reqLogger, tt.args.kd, tt.args.dep, tt.args.canaryDep)
+			got, err := m.Validation(tt.args.kclient, reqLogger, tt.args.kd, tt.args.dep, tt.args.canaryDep)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("manualImpl.Validation() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			var gotSucceed bool
-			var gotInvalid bool
-			for _, cond := range gotStatus.Conditions {
-				if cond.Type == kanaryv1alpha1.SucceededKanaryDeploymentConditionType && cond.Status == corev1.ConditionTrue {
-					gotSucceed = true
-				}
-				if cond.Type == kanaryv1alpha1.FailedKanaryDeploymentConditionType && cond.Status == corev1.ConditionTrue {
-					gotInvalid = true
-				}
-			}
-
-			if gotSucceed != tt.wantStatusSucceed {
-				t.Errorf("manualImpl.Validation() gotSucceed = %v, want %v", gotSucceed, tt.wantStatusSucceed)
-			}
-
-			if gotInvalid != tt.wantStatusInvalid {
-				t.Errorf("manualImpl.Validation() gotInvalid = %v, want %v", gotInvalid, tt.wantStatusInvalid)
-			}
-
-			if !reflect.DeepEqual(gotResult, tt.wantResult) {
-				t.Errorf("manualImpl.Validation() gotResult = %v, want %v", gotResult, tt.wantResult)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("manualImpl.Validation() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}

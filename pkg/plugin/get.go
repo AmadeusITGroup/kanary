@@ -166,11 +166,11 @@ func getStatus(kd *v1alpha1.KanaryDeployment) string {
 
 func getDuration(kd *v1alpha1.KanaryDeployment) string {
 	duration := time.Duration(0)
-	if kd.Spec.Validation.InitialDelay != nil {
-		duration += kd.Spec.Validation.InitialDelay.Duration
+	if kd.Spec.Validations.InitialDelay != nil {
+		duration += kd.Spec.Validations.InitialDelay.Duration
 	}
-	if kd.Spec.Validation.ValidationPeriod != nil {
-		duration += kd.Spec.Validation.ValidationPeriod.Duration
+	if kd.Spec.Validations.ValidationPeriod != nil {
+		duration += kd.Spec.Validations.ValidationPeriod.Duration
 	}
 	since := time.Since(kd.ObjectMeta.CreationTimestamp.Time)
 	return fmt.Sprintf("%s/%s", since, duration)

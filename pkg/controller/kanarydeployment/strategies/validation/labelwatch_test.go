@@ -1,27 +1,22 @@
 package validation
 
 import (
-	"fmt"
+	"reflect"
 	"testing"
 	"time"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-
-	"k8s.io/client-go/kubernetes/scheme"
-
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 	kanaryv1alpha1test "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1/test"
 	utilstest "github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/test"
+
+	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 func Test_labelWatchImpl_Validation(t *testing.T) {
@@ -62,13 +57,11 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 		canaryDep *appsv1beta1.Deployment
 	}
 	tests := []struct {
-		name              string
-		fields            fields
-		args              args
-		wantStatusSucceed bool
-		wantStatusInvalid bool
-		wantResult        reconcile.Result
-		wantErr           bool
+		name    string
+		fields  fields
+		args    args
+		want    *Result
+		wantErr bool
 	}{
 		{
 			name: "default manual validation spec",
@@ -86,10 +79,33 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 			},
-			wantStatusSucceed: true,
-			wantStatusInvalid: false,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			want: &Result{
+				IsFailed:             false,
+				NeedUpdateDeployment: true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "default manual validation spec, dryRun",
+			fields: fields{
+				validationPeriod:  &metav1.Duration{Duration: 30 * time.Second},
+				maxIntervalPeriod: &metav1.Duration{Duration: 15 * time.Second},
+				dryRun:            true,
+				config: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
+					DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
+				},
+			},
+			args: args{
+				kclient:   fake.NewFakeClient([]runtime.Object{utilstest.NewDeployment(name, namespace, defaultReplicas, nil)}...),
+				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedLabelWatchPodSpec}),
+				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
+				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
+			},
+			want: &Result{
+				IsFailed:             false,
+				NeedUpdateDeployment: true,
+			},
+			wantErr: false,
 		},
 		{
 			name: "validation period not finished",
@@ -107,31 +123,12 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 			},
-			wantStatusSucceed: false,
-			wantStatusInvalid: false,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
-		},
-		{
-			name: "dryrun, no deployment update",
-			fields: fields{
-				validationPeriod:  &metav1.Duration{Duration: 30 * time.Second},
-				maxIntervalPeriod: &metav1.Duration{Duration: 15 * time.Second},
-				dryRun:            true,
-				config: &kanaryv1alpha1.KanaryDeploymentSpecValidationLabelWatch{
-					DeploymentInvalidationLabels: &metav1.LabelSelector{MatchLabels: mapFailed},
-				},
+			want: &Result{
+				IsFailed:             false,
+				NeedUpdateDeployment: false,
+				Result:               reconcile.Result{RequeueAfter: 15 * time.Second},
 			},
-			args: args{
-				kclient:   fake.NewFakeClient([]runtime.Object{}...),
-				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedLabelWatchPodSpec}),
-				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
-				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
-			},
-			wantStatusSucceed: true,
-			wantStatusInvalid: false,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			wantErr: false,
 		},
 		{
 			name: "pod selector: validation success",
@@ -149,11 +146,14 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 			},
-			wantStatusSucceed: true,
-			wantStatusInvalid: false,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			want: &Result{
+				IsFailed:             false,
+				NeedUpdateDeployment: true,
+				Result:               reconcile.Result{},
+			},
+			wantErr: false,
 		},
+		//
 		{
 			name: "deployment Selector: validation period not finished",
 			fields: fields{
@@ -170,10 +170,12 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 			},
-			wantStatusSucceed: false,
-			wantStatusInvalid: false,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			want: &Result{
+				IsFailed:             false,
+				NeedUpdateDeployment: false,
+				Result:               reconcile.Result{RequeueAfter: 15 * time.Second},
+			},
+			wantErr: false,
 		},
 		{
 			name: "Deployment selector: validation period not finished, label failed present",
@@ -191,10 +193,13 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime, Labels: mapFailed}),
 			},
-			wantStatusSucceed: false,
-			wantStatusInvalid: true,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			want: &Result{
+				IsFailed:             true,
+				NeedUpdateDeployment: false,
+				Comment:              "labelWatch has detected invalidation labels",
+				Result:               reconcile.Result{RequeueAfter: 15 * time.Second},
+			},
+			wantErr: false,
 		},
 		{
 			name: "Pod selector: validation period not finished, label failed present",
@@ -212,44 +217,31 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime, Labels: mapFailed}),
 			},
-			wantStatusSucceed: false,
-			wantStatusInvalid: true,
-			wantResult:        reconcile.Result{},
-			wantErr:           false,
+			want: &Result{
+				IsFailed:             true,
+				NeedUpdateDeployment: false,
+				Comment:              "labelWatch has detected invalidation labels",
+				Result:               reconcile.Result{RequeueAfter: 15 * time.Second},
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
-		reqLogger := log.WithValues("test:", tt.name)
 		t.Run(tt.name, func(t *testing.T) {
+			reqLogger := log.WithValues("test:", tt.name)
 			l := &labelWatchImpl{
 				validationPeriod:  tt.fields.validationPeriod,
 				maxIntervalPeriod: tt.fields.maxIntervalPeriod,
 				dryRun:            tt.fields.dryRun,
 				config:            tt.fields.config,
 			}
-			gotStatus, _, err := l.Validation(tt.args.kclient, reqLogger, tt.args.kd, tt.args.dep, tt.args.canaryDep)
+			got, err := l.Validation(tt.args.kclient, reqLogger, tt.args.kd, tt.args.dep, tt.args.canaryDep)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("labelWatchImpl.Validation() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			reqLogger.Info(fmt.Sprintf("err:%v", err))
-			var gotSucceed bool
-			var gotInvalid bool
-			for _, cond := range gotStatus.Conditions {
-				if cond.Type == kanaryv1alpha1.SucceededKanaryDeploymentConditionType && cond.Status == corev1.ConditionTrue {
-					gotSucceed = true
-				}
-				if cond.Type == kanaryv1alpha1.FailedKanaryDeploymentConditionType && cond.Status == corev1.ConditionTrue {
-					gotInvalid = true
-				}
-			}
-
-			if gotSucceed != tt.wantStatusSucceed {
-				t.Errorf("manualImpl.Validation() gotSucceed = %v, want %v", gotSucceed, tt.wantStatusSucceed)
-			}
-
-			if gotInvalid != tt.wantStatusInvalid {
-				t.Errorf("manualImpl.Validation() gotInvalid = %v, want %v", gotInvalid, tt.wantStatusInvalid)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("labelWatchImpl.Validation() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}
