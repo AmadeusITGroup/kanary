@@ -161,7 +161,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		var errs []error
 		for _, validationItem := range s.validations {
 			var result *validation.Result
-			result, err = validationItem.ValidationV2(kclient, reqLogger, kd, dep, canarydep)
+			result, err = validationItem.Validation(kclient, reqLogger, kd, dep, canarydep)
 			if err != nil {
 				errs = append(errs, err)
 			}
