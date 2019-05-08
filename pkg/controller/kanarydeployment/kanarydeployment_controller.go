@@ -24,7 +24,6 @@ import (
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies"
-	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies/traffic"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/comparison"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/enqueue"
@@ -157,7 +156,7 @@ func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger log
 	result := reconcile.Result{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: kd.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
-		deployment, err = utils.NewCanaryDeploymentFromKanaryDeploymentTemplate(kd, r.scheme, false, traffic.NeedOverwriteSelector(kd))
+		deployment, err = utils.NewCanaryDeploymentFromKanaryDeploymentTemplate(r.client, kd, r.scheme, false)
 		if err != nil {
 			reqLogger.Error(err, "failed to create the Deployment artifact")
 			return deployment, true, result, err

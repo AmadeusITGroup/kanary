@@ -1,14 +1,17 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/amadeusitgroup/kanary/pkg/apis"
@@ -87,6 +90,7 @@ func NewDeploymentFromKanaryDeploymentTemplate(kdold *kanaryv1alpha1.KanaryDeplo
 	if dep.Labels == nil {
 		dep.Labels = map[string]string{}
 	}
+
 	for key, val := range ls {
 		dep.Labels[key] = val
 	}
@@ -110,7 +114,7 @@ func NewDeploymentFromKanaryDeploymentTemplate(kdold *kanaryv1alpha1.KanaryDeplo
 }
 
 // NewCanaryDeploymentFromKanaryDeploymentTemplate returns a Deployment object
-func NewCanaryDeploymentFromKanaryDeploymentTemplate(kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool, overwriteLabel bool) (*appsv1beta1.Deployment, error) {
+func NewCanaryDeploymentFromKanaryDeploymentTemplate(kclient client.Client, kd *kanaryv1alpha1.KanaryDeployment, scheme *runtime.Scheme, setOwnerRef bool) (*appsv1beta1.Deployment, error) {
 	dep, err := NewDeploymentFromKanaryDeploymentTemplate(kd, scheme, true)
 	if err != nil {
 		return nil, err
@@ -122,6 +126,19 @@ func NewCanaryDeploymentFromKanaryDeploymentTemplate(kd *kanaryv1alpha1.KanaryDe
 		kanaryv1alpha1.KanaryDeploymentActivateLabelKey:   kanaryv1alpha1.KanaryDeploymentLabelValueTrue,
 	}
 	dep.Spec.Selector.MatchLabels = dep.Spec.Template.Labels
+
+	//Here add the labels that are not part of the service selector
+	service := &corev1.Service{}
+	err = kclient.Get(context.TODO(), types.NamespacedName{Name: kd.Spec.ServiceName, Namespace: kd.Namespace}, service)
+	serviceSelector := service.Spec.Selector
+	if err == nil {
+		for k, v := range kd.Spec.Template.Spec.Template.ObjectMeta.Labels {
+			if _, ok := serviceSelector[k]; ok {
+				continue // don't add this label that is used by service discovery. The traffic strategy will add it if needed
+			}
+			dep.Spec.Template.Labels[k] = v //typically add labels like "version" that are used for pod management but not for service discovery
+		}
+	}
 
 	dep.Spec.Replicas = GetCanaryReplicasValue(kd)
 
