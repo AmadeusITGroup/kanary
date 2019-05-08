@@ -103,7 +103,11 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	}
 
 	// Init KanaryDeployment with defaulted Strategy (desactiviated)
-	newKD := utils.NewKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, nil)
+	validationSpec := &kanaryv1alpha1.KanaryDeploymentSpecValidationList{
+		ValidationPeriod: &metav1.Duration{Duration: 20 * time.Second},
+	}
+
+	newKD := utils.NewKanaryDeployment(namespace, name, deploymentName, serviceName, "busybox", "latest", commandV1, replicas, nil, nil, validationSpec)
 	err = f.Client.Create(goctx.TODO(), newKD, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +118,6 @@ func InitKanaryDeploymentInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	// valid the kanaryDeployment
 	err = utils.UpdateKanaryDeploymentFunc(f, namespace, name, func(k *kanaryv1alpha1.KanaryDeployment) {
 		for id, item := range k.Spec.Validations.Items {

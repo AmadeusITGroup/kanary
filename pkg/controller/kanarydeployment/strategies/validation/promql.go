@@ -166,3 +166,42 @@ func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 	}
 	return status, result, err
 }
+
+func (p *promqlImpl) ValidationV2(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (*Result, error) {
+	var err error
+	result := &Result{}
+
+	//re-init the anomaly detector at each validation in case some settings have changed in the kd
+	if err = p.initAnomalyDetector(kclient, reqLogger, kd, dep, canaryDep); err != nil {
+		return result, err
+	}
+	// By default a Deployement is valid until a Label is discovered on pod or deployment.
+
+	pods, err := p.anomalydetector.GetPodsOutOfBounds()
+	if err != nil {
+		return result, err
+	}
+
+	//Check if at least one kanary pod was detected by anomaly detector
+	if len(pods) > 0 {
+		result.IsFailed = true
+	}
+
+	var deadlineReached bool
+	if canaryDep != nil {
+		var requeueAfter time.Duration
+		requeueAfter, deadlineReached = isDeadlinePeriodDone(p.validationPeriod, p.maxIntervalPeriod, canaryDep.CreationTimestamp.Time, time.Now())
+		if !deadlineReached {
+			result.RequeueAfter = requeueAfter
+		}
+		if deadlineReached && !result.IsFailed {
+			result.NeedUpdateDeployment = true
+		}
+	}
+
+	if result.IsFailed {
+		result.Comment = "promQL query reported an issue with one of the kanary pod"
+	}
+
+	return result, err
+}

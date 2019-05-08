@@ -14,4 +14,20 @@ import (
 // Interface validation strategy interface
 type Interface interface {
 	Validation(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error)
+	ValidationV2(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (*Result, error)
+}
+
+// ValidationResult returns result of a Validation
+type Result struct {
+	reconcile.Result
+	IsFailed             bool
+	NeedUpdateDeployment bool
+	Comment              string
+}
+
+func (vr Result) IsDone() bool {
+	if vr.Requeue || vr.RequeueAfter > 0 {
+		return false
+	}
+	return true
 }

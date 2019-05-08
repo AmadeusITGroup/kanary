@@ -110,3 +110,61 @@ func (l *labelWatchImpl) Validation(kclient client.Client, reqLogger logr.Logger
 	}
 	return status, result, err
 }
+
+func (l *labelWatchImpl) ValidationV2(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) (*Result, error) {
+	var err error
+	result := &Result{}
+	// By default a Deployement is valid until a Label is discovered on pod or deployment.
+	isSucceed := true
+
+	if l.config.DeploymentInvalidationLabels != nil {
+		var selector labels.Selector
+		selector, err = metav1.LabelSelectorAsSelector(l.config.DeploymentInvalidationLabels)
+		if err != nil {
+			// TODO improve error handling
+			return result, err
+		}
+		if selector.Matches(labels.Set(canaryDep.Labels)) {
+			isSucceed = false
+		}
+	}
+
+	// watch pods label
+	if l.config.PodInvalidationLabels != nil {
+		var selector labels.Selector
+		selector, err = metav1.LabelSelectorAsSelector(l.config.PodInvalidationLabels)
+		if err != nil {
+			return result, fmt.Errorf("unable to create the label selector from PodInvalidationLabels: %v", err)
+		}
+		var pods []corev1.Pod
+		pods, err = getPods(kclient, reqLogger, kd.Name, kd.Namespace)
+		if err != nil {
+			return result, fmt.Errorf("unable to list pods: %v", err)
+		}
+		for _, pod := range pods {
+			if selector.Matches(labels.Set(pod.Labels)) {
+				isSucceed = false
+				break
+			}
+		}
+	}
+
+	var deadlineReached bool
+	if canaryDep != nil {
+		var requeueAfter time.Duration
+		requeueAfter, deadlineReached = isDeadlinePeriodDone(l.validationPeriod.Duration, l.maxIntervalPeriod.Duration, canaryDep.CreationTimestamp.Time, time.Now())
+		if !deadlineReached {
+			result.RequeueAfter = requeueAfter
+		}
+		if deadlineReached && isSucceed {
+			result.NeedUpdateDeployment = true
+		}
+	}
+
+	if !isSucceed {
+		result.IsFailed = true
+		result.Comment = "labelWatch has detected invalidation labels"
+	}
+
+	return result, err
+}

@@ -1,14 +1,18 @@
 package strategies
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
 
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -153,11 +157,40 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 
 	if reaminingDelay, done := validation.IsValidationDelayPeriodDone(kd); done {
 		reqLogger.Info("Check Validation")
+		var results []*validation.Result
+		var errs []error
 		for _, validationItem := range s.validations {
-			status, result, err = validationItem.Validation(kclient, reqLogger, kd, dep, canarydep)
+			var result *validation.Result
+			result, err = validationItem.ValidationV2(kclient, reqLogger, kd, dep, canarydep)
 			if err != nil {
-				return status, result, fmt.Errorf("error during Validation processing, err: %v", err)
+				errs = append(errs, err)
 			}
+			results = append(results, result)
+		}
+		if len(errs) > 0 {
+			return &kd.Status, reconcile.Result{Requeue: true}, utilerrors.NewAggregate(errs)
+		}
+		var needUpdateDeployment bool
+		var failed bool
+		status, result, failed, needUpdateDeployment = computeStatus(results, status)
+		if needReturn(&result) {
+			return status, result, nil
+		}
+		if !failed && needUpdateDeployment && !kd.Spec.Validations.NoUpdate {
+			var newDep *appsv1beta1.Deployment
+			newDep, err = utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
+			if err != nil {
+				reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
+				return status, result, err
+			}
+			err = kclient.Update(context.TODO(), newDep)
+			if err != nil {
+				reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name, "newDep", *newDep)
+				return status, result, err
+			}
+		}
+		if needUpdateDeployment && !failed {
+			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
 		}
 	} else {
 		reqLogger.Info("Check Validation", "requeue-initial-delay", reaminingDelay)
@@ -166,6 +199,41 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 	}
 
 	return status, result, err
+}
+
+func computeStatus(results []*validation.Result, status *kanaryv1alpha1.KanaryDeploymentStatus) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, bool, bool) {
+	newStatus := status.DeepCopy()
+	newResult := reconcile.Result{}
+	isFailed := false
+	needUpdateDeployment := true
+	if len(results) == 0 {
+		return newStatus, newResult, isFailed, needUpdateDeployment
+	}
+
+	comments := []string{}
+	for _, result := range results {
+		if result.IsFailed {
+			isFailed = true
+		}
+		if !result.NeedUpdateDeployment {
+			needUpdateDeployment = false
+		}
+		if result.Comment == "" {
+			comments = append(comments, result.Comment)
+		}
+		if result.Requeue {
+			newResult.Requeue = true
+		}
+		if newResult.RequeueAfter == 0 {
+			newResult.RequeueAfter = result.RequeueAfter
+		} else if newResult.RequeueAfter != 0 && result.RequeueAfter < newResult.RequeueAfter {
+			newResult.RequeueAfter = result.RequeueAfter
+		}
+	}
+	if isFailed {
+		utils.UpdateKanaryDeploymentStatusCondition(newStatus, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, fmt.Sprintf("KanaryDeployment failed, %s", strings.Join(comments, ",")))
+	}
+	return newStatus, newResult, isFailed, needUpdateDeployment
 }
 
 func needReturn(result *reconcile.Result) bool {
