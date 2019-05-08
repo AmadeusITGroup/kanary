@@ -2,6 +2,7 @@ package validation
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -78,6 +79,7 @@ func (p *promqlImpl) initAnomalyDetector(kclient client.Client, reqLogger logr.L
 		PromConfig: &anomalydetector.ConfigPrometheusAnomalyDetector{
 			PrometheusService: p.validationSpec.PrometheusService,
 			PodNameKey:        p.validationSpec.PodNameKey,
+			AllPodsQuery:      p.validationSpec.AllPodsQuery,
 			Query:             p.validationSpec.Query,
 		},
 	}
@@ -85,6 +87,11 @@ func (p *promqlImpl) initAnomalyDetector(kclient client.Client, reqLogger logr.L
 	if p.validationSpec.ContinuousValueDeviation != nil {
 		anomalyDetectorConfig.ContinuousValueDeviationConfig = &anomalydetector.ContinuousValueDeviationConfig{
 			MaxDeviationPercent: *p.validationSpec.ContinuousValueDeviation.MaxDeviationPercent,
+		}
+	} else if p.validationSpec.ValueInRange != nil {
+		anomalyDetectorConfig.ValueInRangeConfig = &anomalydetector.ValueInRangeConfig{
+			Min: *p.validationSpec.ValueInRange.Min,
+			Max: *p.validationSpec.ValueInRange.Max,
 		}
 	} else if p.validationSpec.DiscreteValueOutOfList != nil {
 		anomalyDetectorConfig.DiscreteValueOutOfListConfig = &anomalydetector.DiscreteValueOutOfListConfig{
@@ -115,12 +122,13 @@ func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 		return result, err
 	}
 	// By default a Deployement is valid until a Label is discovered on pod or deployment.
-
+	reqLogger.WithName("DEBUG-VALIDATION").Info("GetPodsOutOfBounds")
 	pods, err := p.anomalydetector.GetPodsOutOfBounds()
 	if err != nil {
-		return result, err
+		reqLogger.WithName("DEBUG-VALIDATION").Info("GetPodsOutOfBounds - ERROR")
+		return status, result, err
 	}
-
+	reqLogger.WithName("DEBUG-VALIDATION").Info(fmt.Sprintf("GetPodsOutOfBounds - Len = %d", len(pods)))
 	//Check if at least one kanary pod was detected by anomaly detector
 	if len(pods) > 0 {
 		result.IsFailed = true
@@ -130,6 +138,7 @@ func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 	if canaryDep != nil {
 		var requeueAfter time.Duration
 		requeueAfter, deadlineReached = isDeadlinePeriodDone(p.validationPeriod, p.maxIntervalPeriod, canaryDep.CreationTimestamp.Time, time.Now())
+		reqLogger.WithName("DEBUG-VALIDATION").Info(fmt.Sprintf("isDeadlinePeriodDone - requeueAfter = %f - deadlineReached = %v", requeueAfter.Seconds(), deadlineReached))
 		if !deadlineReached {
 			result.RequeueAfter = requeueAfter
 		}

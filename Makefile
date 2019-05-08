@@ -22,6 +22,9 @@ ${ARTIFACT_PLUGIN}: ${SOURCES}
 
 container:
 	operator-sdk build $(PREFIX):$(TAG)
+    ifeq ($(KINDPUSH), true)
+	 kind load docker-image $(PREFIX):$(TAG)
+    endif
 
 test:
 	./go.test.sh
@@ -30,10 +33,10 @@ e2e:
 	./test/e2e/launch.sh
 
 simple-server:
-	CGO_ENABLED=0 go build -i -installsuffix cgo -ldflags '-w' -o ./test/simple-server/docker/build/simple-server ./test/simple-server
-	docker build -t simpleserver:latest ./test/simple-server/docker
+	CGO_ENABLED=0 go build -i -installsuffix cgo -ldflags '-w' -o ./test/simple-server/docker/build/_output/simple-server ./test/simple-server
+	docker build -t kanary/simpleserver:latest ./test/simple-server/docker
     ifeq ($(KINDPUSH), true)
-	 kind load docker-image simpleserver:latest
+	 kind load docker-image kanary/simpleserver:latest
     endif
 
 push: container

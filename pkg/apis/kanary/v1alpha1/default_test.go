@@ -211,6 +211,62 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "already some configuration, value in range",
+			kd: &KanaryDeployment{
+				Spec: KanaryDeploymentSpec{
+					Scale: KanaryDeploymentSpecScale{
+						Static: &KanaryDeploymentSpecScaleStatic{
+							Replicas: NewInt32(1),
+						},
+					},
+					Traffic: KanaryDeploymentSpecTraffic{
+						Source: KanaryServiceKanaryDeploymentSpecTrafficSource,
+					},
+					Validation: KanaryDeploymentSpecValidation{
+						ValidationPeriod: &metav1.Duration{
+							Duration: 30 * time.Minute,
+						},
+						InitialDelay: &metav1.Duration{
+							Duration: 5 * time.Minute,
+						},
+						PromQL: &KanaryDeploymentSpecValidationPromQL{
+							Query:        "foo",
+							ValueInRange: &ValueInRange{},
+						},
+					},
+				},
+			},
+			want: &KanaryDeployment{
+				Spec: KanaryDeploymentSpec{
+					Scale: KanaryDeploymentSpecScale{
+						Static: &KanaryDeploymentSpecScaleStatic{
+							Replicas: NewInt32(1),
+						},
+					},
+					Traffic: KanaryDeploymentSpecTraffic{
+						Source: KanaryServiceKanaryDeploymentSpecTrafficSource,
+					},
+					Validation: KanaryDeploymentSpecValidation{
+						ValidationPeriod: &metav1.Duration{
+							Duration: 30 * time.Minute,
+						},
+						InitialDelay: &metav1.Duration{
+							Duration: 5 * time.Minute,
+						},
+						PromQL: &KanaryDeploymentSpecValidationPromQL{
+							PrometheusService: "prometheus:9090",
+							Query:             "foo",
+							PodNameKey:        "pod",
+							ValueInRange: &ValueInRange{
+								Min: NewFloat64(0),
+								Max: NewFloat64(1),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

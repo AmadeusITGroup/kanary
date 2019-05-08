@@ -1,12 +1,11 @@
 #!/bin/bash
 
 # Prerequisit
-# 1- run the kind cluster --> kind create cluster
-# 2- install helm tiller  --> ./hack/install-helm-tiller.sh
-# 3- install istio        --> ./hack/install-istio.sh
-# 4- build the operator   --> make build && make TAG=latest container
-# 5- push image in kind   --> kind load docker-image kanary/operator:latest
-
+# 1- run the kind cluster       --> kind create cluster
+# 2- install helm tiller        --> ./hack/install-helm-tiller.sh
+# 3- install istio              --> ./hack/install-istio.sh
+# 4- build the operator         --> make build && make TAG=latest KINDPUSH=true container
+# 5- build the simple-server    --> make KINDPUSH=true simple-server
 
 DEMO_DIR="$(cd "$(dirname "${0}")" && pwd)"
 CURRENT=$PWD

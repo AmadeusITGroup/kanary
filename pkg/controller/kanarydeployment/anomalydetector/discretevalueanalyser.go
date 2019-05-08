@@ -57,6 +57,16 @@ func (d *DiscreteValueOutOfListAnalyser) GetPodsOutOfBounds() ([]*kapiv1.Pod, er
 		return nil, err
 	}
 
+	//check if the key is GlobalKeyQuery that means that the result is applicable to all pods
+	if len(countersByPods) == 1 {
+		if v, ok := countersByPods[GlobalQueryKey]; ok {
+			for _, pod := range podByName {
+				countersByPods[pod.Name] = v
+			}
+			delete(countersByPods, GlobalQueryKey)
+		}
+	}
+
 	for podName, counter := range countersByPods {
 		_, found := podWithNoTraffic[podName]
 		if found {

@@ -4,4 +4,6 @@ RUN apk upgrade --update --no-cache
 
 USER nobody
 
-ADD build/simple-server /usr/local/bin/simple-server
+ADD build/_output/simple-server /usr/local/bin/simple-server
+
+ENTRYPOINT [ "/usr/local/bin/simple-server" ]

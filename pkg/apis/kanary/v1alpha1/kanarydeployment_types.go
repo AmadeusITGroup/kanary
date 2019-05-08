@@ -3,7 +3,7 @@ package v1alpha1
 import (
 	"k8s.io/api/apps/v1beta1"
 	"k8s.io/api/autoscaling/v2beta1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -191,10 +191,17 @@ type KanaryDeploymentSpecValidationPromQL struct {
 	PrometheusService string `json:"prometheusService"`
 	Query             string `json:"query"` //The promQL query
 	// note the AND close that prevent to return record when there is less that 70 records over the floating time window of 1m
-	PodNameKey string `json:"podNamekey"` // Key to access the podName
-
+	PodNameKey               string                    `json:"podNamekey"`   // Key to access the podName
+	AllPodsQuery             bool                      `json:"allPodsQuery"` // This indicate that the query will return a result that is applicable to all pods. The pod dimension and so the PodNameKey is not taken into account. Default value is false.
+	ValueInRange             *ValueInRange             `json:"valueInRange,omitempty"`
 	DiscreteValueOutOfList   *DiscreteValueOutOfList   `json:"discreteValueOutOfList,omitempty"`
 	ContinuousValueDeviation *ContinuousValueDeviation `json:"continuousValueDeviation,omitempty"`
+}
+
+// ValueInRange detect anomaly when the value returned is not inside the defined range
+type ValueInRange struct {
+	Min *float64 `json:"min"` // Min , the lower bound of the range. Default value is 0.0
+	Max *float64 `json:"max"` // Max , the upper bound of the range. Default value is 1.0
 }
 
 // ContinuousValueDeviation detect anomaly when the average value for a pod is deviating from the average for the fleet of pods. If a pods does not register enough event it should not be returned by the PromQL

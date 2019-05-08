@@ -1,0 +1,45 @@
+apiVersion: kanary.k8s.io/v1alpha1
+kind: KanaryDeployment
+metadata:
+  name: myapp
+spec:
+  deploymentName: myapp
+  scale:
+    static:
+      replicas: 1
+  serviceName: myapp-svc
+  template:
+    metadata:
+      creationTimestamp: null
+    spec:
+      selector:
+        matchLabels:
+          app: myapp
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            app: myapp
+            version: v1
+        spec:
+          containers:
+          - args:
+            - --responseTime=30:800,50:100,100:80
+            image: kanary/simpleserver:latest
+            imagePullPolicy: IfNotPresent
+            name: myapp
+            ports:
+            - containerPort: 8080
+              protocol: TCP
+  traffic:
+    source: both
+  validation:
+    initialDelay: 15s
+    validationPeriod: 1m0s
+    promQL:
+      allPodsQuery: true
+      prometheusService: "prometheus.istio-system:9090"
+      query: "histogram_quantile(0.90, sum(irate(istio_request_duration_seconds_bucket{reporter=\"destination\",destination_workload=\"myapp-kanary-myapp\"}[10s])) by (le))"      
+      valueInRange:
+        max: 0.350
+    
