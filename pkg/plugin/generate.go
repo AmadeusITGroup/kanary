@@ -287,7 +287,7 @@ func (o *generateOptions) Run() error {
 
 		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidationPromQL{
 			Query:             "histogram_quantile(0." + p + ", sum(irate(istio_request_duration_seconds_bucket{reporter=\"destination\",destination_workload=\"" + o.userDeploymentName + "-kanary-" + o.userDeploymentName + "\"}[10s])) by (le))",
-			PrometheusService: "istio-system.promethus:9090",
+			PrometheusService: "prometheus.istio-system:9090",
 			AllPodsQuery:      true,
 			ValueInRange: &v1alpha1.ValueInRange{
 				Max: v1alpha1.NewFloat64(d.Seconds()),

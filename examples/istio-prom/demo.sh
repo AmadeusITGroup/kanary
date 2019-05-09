@@ -27,10 +27,13 @@ NAMESPACE="prom-istio-example"
 
 #Cleanup script when demo exit
 function cleanup() {
-  desc "cleaning the namespace"
-  run "kubectl delete ns $NAMESPACE"  
-  desc "Stopping PortForward"
-  run "kill -9 ${portforwardPID}"
+  desc "Cleanup"
+  desc "kill -9 ${portforwardPID} #Stopping PortForward"
+  kill -9 ${portforwardPID} 
+  desc "kill -9 ${injectionPID} #Stopping injection"
+  kill -9 ${injectionPID} 
+  desc "kubectl delete ns $NAMESPACE #cleaning namespace"
+  kubectl delete ns $NAMESPACE
   cd "$CURRENT"
 }
 trap cleanup EXIT
@@ -60,28 +63,52 @@ portforwardPID=$!
 desc "Inventory of objects"
 run "kubectl get all"
 
-desc "Let's check that service myapp-svc replies"
-run "for i in {1..20}; do curl -HHost:myapp.example.com 127.0.0.1:$LOCAL80/host; echo; sleep 0.1; done"
+function injection() {
+  while true; do curl -HHost:myapp.example.com 127.0.0.1:$LOCAL80/host > /dev/null 2>&1; sleep 0.05; done
+}
 
-desc "Create a kanary with traffic=both and new version v2"
-run "kubectl kanary generate myapp --traffic=both --service=myapp-svc --validation-period=1m | jq '.spec.template.spec.template.metadata.labels.version = \"v2\"' |kubectl apply -f -"
+desc "Let's run injection"
+injection &
+injectionPID=$!
 
-desc "Checking kanary deployments"
-run "kubectl get kd"
+desc "Open Grafana Istio Dashboard" 
+run "# http://127.0.0.1:$LOCAL80  + Host modification plugin to match grafana.example.com"
 
-wait_for_deployment "myapp-kanary-myapp"
+desc "Create a kanary with traffic=both and new version with response time degradation"
+run "kubectl kanary generate myapp --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=5:300,50:100,100:80\"' | kubectl apply -f -"
 
-desc "Checking kanary deployments with plugin"
-run "kubectl kanary get"
+desc "Monitoring the kanary deployments... till it fails"
+run "watch kubectl kanary get"
+
+desc "All object are still there for investigation!!!"
+run "kubectl get all"
+
+desc "Let's remove the kanary"
+run "kubectl delete kanary myapp"
 
 desc "Inventory of objects"
 run "kubectl get all"
 
-desc "Checking the endpoints"
-run "kubectl get ep"
+desc "Create a kanary with traffic=both and new version with correct response time"
+run "kubectl kanary generate myapp --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=5:100,50:50,100:10\"' | kubectl apply -f -"
+
+desc "Monitoring the kanary deployments... till success and rollout"
+run "watch kubectl kanary get"
 
 desc "Inventory of objects"
 run "kubectl get all"
+
+desc "Let's remove the kanary"
+run "kubectl delete kanary myapp"
+
+desc "What about doing 2 kanaries at the same time?"
+run "kubectl kanary generate myapp --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=5:300,50:100,100:80\"' | jq '.metadata.name = \"cedric\"' | kubectl apply -f -"
+run "kubectl kanary generate myapp --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=5:100,50:50,100:10\"' | jq '.metadata.name = \"david\"' | kubectl apply -f -"
+
+desc "Monitoring the kanaries"
+run "watch kubectl kanary get"
+
+
 
 # using version
 # histogram_quantile(0.6, sum(irate(istio_request_duration_seconds_bucket{reporter="destination",destination_service=~"myapp-svc.*"}[10s])) by (destination_version, le))
