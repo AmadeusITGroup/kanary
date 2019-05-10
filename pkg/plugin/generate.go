@@ -246,13 +246,8 @@ func (o *generateOptions) Run() error {
 		return fmt.Errorf("wrong value for 'traffic' parameter, current value:%s", o.userTraffic)
 	}
 
-<<<<<<< HEAD
-	if o.userValidationLabelWatchDeployment == "" && o.userValidationLabelWatchPod == "" && o.userValidationPromQLQuery == "" {
-		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidation{Manual: &v1alpha1.KanaryDeploymentSpecValidationManual{}})
-=======
 	if o.userValidationLabelWatchDeployment == "" && o.userValidationLabelWatchPod == "" && o.userValidationPromQLIstioQuantile == "" {
-		newKanaryDeployment.Spec.Validation.Manual = &v1alpha1.KanaryDeploymentSpecValidationManual{}
->>>>>>> valiadation with istio metrics and promql - missing e2e
+		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidation{Manual: &v1alpha1.KanaryDeploymentSpecValidationManual{}})
 	} else if o.userValidationLabelWatchPod != "" || o.userValidationLabelWatchDeployment != "" {
 		newLabelWatch := &v1alpha1.KanaryDeploymentSpecValidationLabelWatch{}
 		if o.userValidationLabelWatchPod != "" {
@@ -285,15 +280,16 @@ func (o *generateOptions) Run() error {
 		ms, _ := strconv.Atoi(o.userValidationPromQLIstioQuantile[4:])
 		d := time.Duration(ms) * time.Millisecond
 
-		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidationPromQL{
+		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidation{PromQL: &v1alpha1.KanaryDeploymentSpecValidationPromQL{
 			Query:             "histogram_quantile(0." + p + ", sum(irate(istio_request_duration_seconds_bucket{reporter=\"destination\",destination_workload=\"" + o.userDeploymentName + "-kanary-" + o.userDeploymentName + "\"}[10s])) by (le))",
 			PrometheusService: "prometheus.istio-system:9090",
 			AllPodsQuery:      true,
 			ValueInRange: &v1alpha1.ValueInRange{
 				Max: v1alpha1.NewFloat64(d.Seconds()),
 			},
-		})
-		newKanaryDeployment.Spec.Validation.InitialDelay = &metav1.Duration{Duration: 15 * time.Second}
+		}})
+		newKanaryDeployment.Spec.Validations.InitialDelay = &metav1.Duration{Duration: 15 * time.Second}
+		newKanaryDeployment.Spec.Validations.MaxIntervalPeriod = &metav1.Duration{Duration: 10 * time.Second}
 	}
 
 	newKanaryDeployment = v1alpha1.DefaultKanaryDeployment(newKanaryDeployment)

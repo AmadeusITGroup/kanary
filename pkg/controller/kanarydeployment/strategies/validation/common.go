@@ -13,21 +13,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func isDeadlinePeriodDone(validationPeriod, maxRequeueDuration time.Duration, startTime, now time.Time) (time.Duration, bool) {
-	if startTime.Add(validationPeriod).Before(now) {
-		return time.Duration(0), true
+//GetNextValidationCheckDuration return the shortest duration between deadline-now and MaxIntervalPeriod
+func GetNextValidationCheckDuration(kd *v1alpha1.KanaryDeployment) time.Duration {
+	deadline := GetValidationDeadLine(kd)
+	d := time.Until(deadline)
+	if d < 0 {
+		return time.Millisecond
 	}
-	d := startTime.Add(validationPeriod).Sub(now)
-	if d-maxRequeueDuration > 0 {
-		return maxRequeueDuration, false
+
+	if d < kd.Spec.Validations.MaxIntervalPeriod.Duration {
+		return d
 	}
-	return d, false
+	return kd.Spec.Validations.MaxIntervalPeriod.Duration
 }
 
-// IsValidationDelayPeriodDone returns true if the InitialDelay validation periode is over.
-func IsValidationDelayPeriodDone(kd *v1alpha1.KanaryDeployment) (time.Duration, bool) {
-	now := time.Now()
-	return isDeadlinePeriodDone(kd.Spec.Validations.InitialDelay.Duration, kd.Spec.Validations.MaxIntervalPeriod.Duration, kd.CreationTimestamp.Time, now)
+//GetValidationDeadLine return the timestamp for the end validation period
+func GetValidationDeadLine(kd *v1alpha1.KanaryDeployment) time.Time {
+	return kd.CreationTimestamp.Time.Add(kd.Spec.Validations.InitialDelay.Duration).Add(kd.Spec.Validations.ValidationPeriod.Duration)
+}
+
+// IsDeadlinePeriodDone returns true if the InitialDelay validation periode is over.
+func IsDeadlinePeriodDone(kd *v1alpha1.KanaryDeployment) bool {
+	return GetValidationDeadLine(kd).Before(time.Now())
 }
 
 // IsInitialDelayDone returns true if the InitialDelay validation periode is over.

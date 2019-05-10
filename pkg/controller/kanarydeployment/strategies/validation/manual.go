@@ -1,8 +1,6 @@
 package validation
 
 import (
-	"time"
-
 	"github.com/go-logr/logr"
 
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
@@ -17,8 +15,6 @@ func NewManual(list *kanaryv1alpha1.KanaryDeploymentSpecValidationList, s *kanar
 	return &manualImpl{
 		deadlineStatus:         s.Manual.StatusAfterDealine,
 		validationManualStatus: s.Manual.Status,
-		validationPeriod:       list.ValidationPeriod.Duration,
-		maxIntervalPeriod:      list.MaxIntervalPeriod.Duration,
 		dryRun:                 list.NoUpdate,
 	}
 }
@@ -26,8 +22,6 @@ func NewManual(list *kanaryv1alpha1.KanaryDeploymentSpecValidationList, s *kanar
 type manualImpl struct {
 	deadlineStatus         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadineStatus
 	validationManualStatus kanaryv1alpha1.KanaryDeploymentSpecValidationManualStatus
-	validationPeriod       time.Duration
-	maxIntervalPeriod      time.Duration
 	dryRun                 bool
 }
 
@@ -41,11 +35,8 @@ func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 
 	var deadlineReached bool
 	if canaryDep != nil {
-		var requeueAfter time.Duration
-		requeueAfter, deadlineReached = isDeadlinePeriodDone(m.validationPeriod, m.maxIntervalPeriod, canaryDep.CreationTimestamp.Time, time.Now())
-		if !deadlineReached {
-			result.RequeueAfter = requeueAfter
-		} else if m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
+		deadlineReached = IsDeadlinePeriodDone(kd)
+		if deadlineReached && m.deadlineStatus == kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus {
 			result.NeedUpdateDeployment = true
 		}
 	}

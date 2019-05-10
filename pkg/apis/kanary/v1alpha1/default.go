@@ -252,7 +252,7 @@ func defaultKanaryDeploymentSpecValidationList(list *KanaryDeploymentSpecValidat
 	}
 	if list.MaxIntervalPeriod == nil {
 		list.MaxIntervalPeriod = &metav1.Duration{
-			Duration: 1 * time.Minute,
+			Duration: 20 * time.Second,
 		}
 	}
 
