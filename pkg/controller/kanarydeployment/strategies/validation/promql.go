@@ -126,7 +126,7 @@ func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 	pods, err := p.anomalydetector.GetPodsOutOfBounds()
 	if err != nil {
 		reqLogger.WithName("DEBUG-VALIDATION").Info("GetPodsOutOfBounds - ERROR")
-		return status, result, err
+		return result, err
 	}
 	reqLogger.WithName("DEBUG-VALIDATION").Info(fmt.Sprintf("GetPodsOutOfBounds - Len = %d", len(pods)))
 	//Check if at least one kanary pod was detected by anomaly detector

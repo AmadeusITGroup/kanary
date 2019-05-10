@@ -30,6 +30,18 @@ func IsValidationDelayPeriodDone(kd *v1alpha1.KanaryDeployment) (time.Duration, 
 	return isDeadlinePeriodDone(kd.Spec.Validations.InitialDelay.Duration, kd.Spec.Validations.MaxIntervalPeriod.Duration, kd.CreationTimestamp.Time, now)
 }
 
+// IsInitialDelayDone returns true if the InitialDelay validation periode is over.
+func IsInitialDelayDone(kd *v1alpha1.KanaryDeployment) (time.Duration, bool) {
+	now := time.Now()
+	deadline := kd.CreationTimestamp.Time.Add(kd.Spec.Validations.InitialDelay.Duration)
+
+	if now.After(deadline) {
+		return deadline.Sub(now), true
+	}
+
+	return deadline.Sub(now), false
+}
+
 func getPods(kclient client.Client, reqLogger logr.Logger, KanaryDeploymentName, KanaryDeploymentNamespace string) ([]corev1.Pod, error) {
 	pods := &corev1.PodList{}
 	selector := labels.Set{

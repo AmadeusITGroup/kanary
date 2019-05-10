@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+<<<<<<< HEAD
 	"strings"
+=======
+	"time"
+>>>>>>> trying to fix initial delay
 
 	"github.com/go-logr/logr"
 
@@ -155,7 +159,8 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		}
 	}
 
-	if reaminingDelay, done := validation.IsValidationDelayPeriodDone(kd); done {
+	reaminingDelay, done := validation.IsInitialDelayDone(kd)
+	if done {
 		reqLogger.Info("Check Validation")
 		var results []*validation.Result
 		var errs []error
@@ -191,14 +196,24 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		}
 		if needUpdateDeployment && !failed {
 			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
+
 		}
-	} else {
-		reqLogger.Info("Check Validation", "requeue-initial-delay", reaminingDelay)
-		result.RequeueAfter = reaminingDelay
+
+		if validation.IsValidationDelayPeriodDone(kd) { // completed no need to requeue
+			reqLogger.Info("Check Validation", "validation period completed", time.Now())
+			return status, result, err
+		}
+
+		//Requeue after next period
+		reqLogger.Info("Check Validation", "requeue", kd.Spec.Validation.ValidationPeriod.Duration)
+		result.RequeueAfter = kd.Spec.Validation.ValidationPeriod.Duration
 		return status, result, err
 	}
 
+	reqLogger.Info("Check Validation", "requeue-initial-delay", reaminingDelay)
+	result.RequeueAfter = reaminingDelay
 	return status, result, err
+
 }
 
 func computeStatus(results []*validation.Result, status *kanaryv1alpha1.KanaryDeploymentStatus) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, bool, bool) {
