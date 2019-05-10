@@ -17,7 +17,7 @@ install:
 - kubectl get nodes
 - kubectl get pods --all-namespaces
 - curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash
-- ./hack/install-helm.sh
+- ./hack/install-helm-tiller.sh
 - make install-tools
 stages:
 - name: build

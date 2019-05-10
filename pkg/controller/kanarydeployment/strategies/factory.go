@@ -182,13 +182,15 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 	var failed bool
 	status, result, failed, needUpdateDeployment = computeStatus(results, status)
 
-	reqLogger.Info("Check Validation", "failed", failed, "requeue", result.Requeue, "requeueAfter", result.RequeueAfter.Seconds())
 	if needReturn(&result) {
+		reqLogger.Info("Check Validation - NeedReturn", "failed", failed, "requeue", result.Requeue, "requeueAfter", result.RequeueAfter.Seconds())
 		return status, result, nil
 	}
 
 	if !validationDeadlineDone && !failed { // to force requeue at next period in case all validation succeed
-		return status, reconcile.Result{RequeueAfter: validation.GetNextValidationCheckDuration(kd)}, nil
+		d := validation.GetNextValidationCheckDuration(kd)
+		reqLogger.Info("Check Validation", "Periodic-Requeue", d)
+		return status, reconcile.Result{RequeueAfter: d}, nil
 	}
 
 	if !failed && needUpdateDeployment && !kd.Spec.Validations.NoUpdate {

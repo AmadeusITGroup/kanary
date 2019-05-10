@@ -24,6 +24,7 @@ import (
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 
 	"github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
 var (
@@ -40,6 +41,7 @@ const (
 	argServiceName                    = "service"
 	argScale                          = "scale"
 	argTraffic                        = "traffic"
+	argName                           = "name"
 	argValidationPeriod               = "validation-period"
 	argValidationLabelWatchPod        = "validation-labelwatch-pod"
 	argValidationLabelWatchDeployment = "validation-labelwatch-dep"
@@ -96,6 +98,7 @@ type generateOptions struct {
 	userDeploymentName                 string
 	userServiceName                    string
 	userScale                          string
+	userName                           string
 	userTraffic                        string
 	userValidationPeriod               time.Duration
 	userValidationLabelWatchPod        string
@@ -133,6 +136,7 @@ func NewCmdGenerate(streams genericclioptions.IOStreams) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVarP(&o.userName, argName, "", "", "kanary name")
 	cmd.Flags().StringVarP(&o.userServiceName, argServiceName, "", "", "service name")
 	cmd.Flags().StringVarP(&o.userScale, argScale, "", "static", "kanary scale strategy [static|hpa]")
 	cmd.Flags().StringVarP(&o.userTraffic, argTraffic, "", "none", "kanary traffic strategy [none|service|both|mirror]")
@@ -191,6 +195,10 @@ func (o *generateOptions) Validate() error {
 // Run use to run the command
 func (o *generateOptions) Run() error {
 
+	if o.userName == "" {
+		o.userName = o.userDeploymentName
+	}
+
 	dep := &appsv1beta1.Deployment{}
 	err := o.client.Get(context.TODO(), client.ObjectKey{Name: o.userDeploymentName, Namespace: o.userNamespace}, dep)
 	if err != nil && errors.IsNotFound(err) {
@@ -205,7 +213,7 @@ func (o *generateOptions) Run() error {
 			APIVersion: v1alpha1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      o.userDeploymentName,
+			Name:      o.userName,
 			Namespace: o.userNamespace,
 		},
 		Spec: v1alpha1.KanaryDeploymentSpec{
@@ -281,14 +289,14 @@ func (o *generateOptions) Run() error {
 		d := time.Duration(ms) * time.Millisecond
 
 		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidation{PromQL: &v1alpha1.KanaryDeploymentSpecValidationPromQL{
-			Query:             "histogram_quantile(0." + p + ", sum(irate(istio_request_duration_seconds_bucket{reporter=\"destination\",destination_workload=\"" + o.userDeploymentName + "-kanary-" + o.userDeploymentName + "\"}[10s])) by (le))",
+			Query:             "histogram_quantile(0." + p + ", sum(rate(istio_request_duration_seconds_bucket{reporter=\"destination\",destination_workload=\"" + utils.GetCanaryDeploymentName(newKanaryDeployment) + "\"}[1m])) by (le))",
 			PrometheusService: "prometheus.istio-system:9090",
 			AllPodsQuery:      true,
 			ValueInRange: &v1alpha1.ValueInRange{
 				Max: v1alpha1.NewFloat64(d.Seconds()),
 			},
 		}})
-		newKanaryDeployment.Spec.Validations.InitialDelay = &metav1.Duration{Duration: 15 * time.Second}
+		newKanaryDeployment.Spec.Validations.InitialDelay = &metav1.Duration{Duration: 20 * time.Second}
 		newKanaryDeployment.Spec.Validations.MaxIntervalPeriod = &metav1.Duration{Duration: 10 * time.Second}
 	}
 

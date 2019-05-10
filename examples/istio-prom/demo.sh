@@ -102,8 +102,8 @@ desc "Let's remove the kanary"
 run "kubectl delete kanary myapp"
 
 desc "What about doing 2 kanaries at the same time?"
-run "kubectl kanary generate myapp --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=5:300,50:100,100:80\"' | jq '.metadata.name = \"cedric\"' | kubectl apply -f -"
-run "kubectl kanary generate myapp --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=5:100,50:50,100:10\"' | jq '.metadata.name = \"david\"' | kubectl apply -f -"
+run "kubectl kanary generate myapp --name=cedric --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=5:300,50:100,100:80\"' | kubectl apply -f -"
+run "kubectl kanary generate myapp --name=david --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=5:100,50:50,100:10\"' | kubectl apply -f -"
 
 desc "Monitoring the kanaries"
 run "watch kubectl kanary get"
