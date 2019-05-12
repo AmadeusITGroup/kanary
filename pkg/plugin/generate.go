@@ -42,6 +42,7 @@ const (
 	argScale                          = "scale"
 	argTraffic                        = "traffic"
 	argName                           = "name"
+	argDryRun                         = "dry-run"
 	argValidationPeriod               = "validation-period"
 	argValidationLabelWatchPod        = "validation-labelwatch-pod"
 	argValidationLabelWatchDeployment = "validation-labelwatch-dep"
@@ -98,6 +99,7 @@ type generateOptions struct {
 	userDeploymentName                 string
 	userServiceName                    string
 	userScale                          string
+	userDryRun                         bool
 	userName                           string
 	userTraffic                        string
 	userValidationPeriod               time.Duration
@@ -139,6 +141,7 @@ func NewCmdGenerate(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd.Flags().StringVarP(&o.userName, argName, "", "", "kanary name")
 	cmd.Flags().StringVarP(&o.userServiceName, argServiceName, "", "", "service name")
 	cmd.Flags().StringVarP(&o.userScale, argScale, "", "static", "kanary scale strategy [static|hpa]")
+	cmd.Flags().BoolVarP(&o.userDryRun, argDryRun, "", false, "dry run prevent quto,qtic deployment in case of success")
 	cmd.Flags().StringVarP(&o.userTraffic, argTraffic, "", "none", "kanary traffic strategy [none|service|both|mirror]")
 	cmd.Flags().StringVarP(&o.userValidationLabelWatchPod, argValidationLabelWatchPod, "", "", "kanary validation labelwatch: string representation of label-selector for pod invalidation")
 	cmd.Flags().StringVarP(&o.userValidationLabelWatchDeployment, argValidationLabelWatchDeployment, "", "", "kanary validation labelwatch: string representation of label-selector for deployment invalidation")
@@ -298,6 +301,10 @@ func (o *generateOptions) Run() error {
 		}})
 		newKanaryDeployment.Spec.Validations.InitialDelay = &metav1.Duration{Duration: 20 * time.Second}
 		newKanaryDeployment.Spec.Validations.MaxIntervalPeriod = &metav1.Duration{Duration: 10 * time.Second}
+	}
+
+	if o.userDryRun {
+		newKanaryDeployment.Spec.Validations.NoUpdate = true
 	}
 
 	newKanaryDeployment = v1alpha1.DefaultKanaryDeployment(newKanaryDeployment)
