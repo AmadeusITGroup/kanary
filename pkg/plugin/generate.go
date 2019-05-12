@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strconv"
 	"time"
 
 	yaml "github.com/ghodss/yaml"
@@ -22,6 +24,7 @@ import (
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 
 	"github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 )
 
 var (
@@ -38,11 +41,12 @@ const (
 	argServiceName                    = "service"
 	argScale                          = "scale"
 	argTraffic                        = "traffic"
+	argName                           = "name"
+	argDryRun                         = "dry-run"
 	argValidationPeriod               = "validation-period"
 	argValidationLabelWatchPod        = "validation-labelwatch-pod"
 	argValidationLabelWatchDeployment = "validation-labelwatch-dep"
-	argValidationPromQLQuery          = "validation-promql-query"
-	argValidationPromQLServer         = "validation-promql-server"
+	argValidationPromQLIstioQuantile  = "validation-promql-istio-quantile"
 )
 
 type outputFormat string
@@ -95,12 +99,13 @@ type generateOptions struct {
 	userDeploymentName                 string
 	userServiceName                    string
 	userScale                          string
+	userDryRun                         bool
+	userName                           string
 	userTraffic                        string
 	userValidationPeriod               time.Duration
 	userValidationLabelWatchPod        string
 	userValidationLabelWatchDeployment string
-	userValidationPromQLQuery          string
-	userValidationPromQLServer         string
+	userValidationPromQLIstioQuantile  string
 	userOutputFormat                   outputFormatArg
 }
 
@@ -133,13 +138,14 @@ func NewCmdGenerate(streams genericclioptions.IOStreams) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVarP(&o.userName, argName, "", "", "kanary name")
 	cmd.Flags().StringVarP(&o.userServiceName, argServiceName, "", "", "service name")
 	cmd.Flags().StringVarP(&o.userScale, argScale, "", "static", "kanary scale strategy [static|hpa]")
+	cmd.Flags().BoolVarP(&o.userDryRun, argDryRun, "", false, "dry run prevent quto,qtic deployment in case of success")
 	cmd.Flags().StringVarP(&o.userTraffic, argTraffic, "", "none", "kanary traffic strategy [none|service|both|mirror]")
 	cmd.Flags().StringVarP(&o.userValidationLabelWatchPod, argValidationLabelWatchPod, "", "", "kanary validation labelwatch: string representation of label-selector for pod invalidation")
 	cmd.Flags().StringVarP(&o.userValidationLabelWatchDeployment, argValidationLabelWatchDeployment, "", "", "kanary validation labelwatch: string representation of label-selector for deployment invalidation")
-	cmd.Flags().StringVarP(&o.userValidationPromQLQuery, argValidationPromQLQuery, "", "", "kanary validation promql query")
-	cmd.Flags().StringVarP(&o.userValidationPromQLServer, argValidationPromQLServer, "", "", "kanary validation promql server uri")
+	cmd.Flags().StringVarP(&o.userValidationPromQLIstioQuantile, argValidationPromQLIstioQuantile, "", "", "kanary validation using promql on top of istio response time monitoring. format(percentile 90 lower or equal 150 ms) P90<150  ")
 	cmd.Flags().DurationVarP(&o.userValidationPeriod, argValidationPeriod, "", 15*time.Minute, "kanary validation periode")
 	cmd.Flags().VarP(&o.userOutputFormat, argOutputFormat, "o", "generation output format (json or yaml)")
 
@@ -181,8 +187,8 @@ func (o *generateOptions) Validate() error {
 		return fmt.Errorf("the deployment name is mandatory")
 	}
 
-	if (o.userValidationLabelWatchPod != "" && o.userValidationPromQLQuery != "") ||
-		(o.userValidationLabelWatchDeployment != "" && o.userValidationPromQLQuery != "") {
+	if (o.userValidationLabelWatchPod != "" && o.userValidationPromQLIstioQuantile != "") ||
+		(o.userValidationLabelWatchDeployment != "" && o.userValidationPromQLIstioQuantile != "") {
 		return fmt.Errorf("2 validation strategy can not use at the same time")
 	}
 
@@ -191,6 +197,10 @@ func (o *generateOptions) Validate() error {
 
 // Run use to run the command
 func (o *generateOptions) Run() error {
+
+	if o.userName == "" {
+		o.userName = o.userDeploymentName
+	}
 
 	dep := &appsv1beta1.Deployment{}
 	err := o.client.Get(context.TODO(), client.ObjectKey{Name: o.userDeploymentName, Namespace: o.userNamespace}, dep)
@@ -206,7 +216,7 @@ func (o *generateOptions) Run() error {
 			APIVersion: v1alpha1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      o.userDeploymentName,
+			Name:      o.userName,
 			Namespace: o.userNamespace,
 		},
 		Spec: v1alpha1.KanaryDeploymentSpec{
@@ -247,7 +257,7 @@ func (o *generateOptions) Run() error {
 		return fmt.Errorf("wrong value for 'traffic' parameter, current value:%s", o.userTraffic)
 	}
 
-	if o.userValidationLabelWatchDeployment == "" && o.userValidationLabelWatchPod == "" && o.userValidationPromQLQuery == "" {
+	if o.userValidationLabelWatchDeployment == "" && o.userValidationLabelWatchPod == "" && o.userValidationPromQLIstioQuantile == "" {
 		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidation{Manual: &v1alpha1.KanaryDeploymentSpecValidationManual{}})
 	} else if o.userValidationLabelWatchPod != "" || o.userValidationLabelWatchDeployment != "" {
 		newLabelWatch := &v1alpha1.KanaryDeploymentSpecValidationLabelWatch{}
@@ -268,12 +278,33 @@ func (o *generateOptions) Run() error {
 			newLabelWatch.DeploymentInvalidationLabels = selector
 		}
 		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidation{LabelWatch: newLabelWatch})
+	} else if o.userValidationPromQLIstioQuantile != "" {
+		ok, err := regexp.MatchString("^P[0-9]{2}<[0-9]+$", o.userValidationPromQLIstioQuantile)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("Bad format for validation-promql-istio-quantile, should be something like P90<150")
+		}
 
-	} else if o.userValidationPromQLQuery != "" {
+		p := o.userValidationPromQLIstioQuantile[1:3]
+		ms, _ := strconv.Atoi(o.userValidationPromQLIstioQuantile[4:])
+		d := time.Duration(ms) * time.Millisecond
+
 		newKanaryDeployment.Spec.Validations.Items = append(newKanaryDeployment.Spec.Validations.Items, v1alpha1.KanaryDeploymentSpecValidation{PromQL: &v1alpha1.KanaryDeploymentSpecValidationPromQL{
-			Query:             o.userValidationPromQLQuery,
-			PrometheusService: o.userValidationPromQLServer,
+			Query:             "histogram_quantile(0." + p + ", sum(rate(istio_request_duration_seconds_bucket{reporter=\"destination\",destination_workload=\"" + utils.GetCanaryDeploymentName(newKanaryDeployment) + "\"}[1m])) by (le))",
+			PrometheusService: "prometheus.istio-system:9090",
+			AllPodsQuery:      true,
+			ValueInRange: &v1alpha1.ValueInRange{
+				Max: v1alpha1.NewFloat64(d.Seconds()),
+			},
 		}})
+		newKanaryDeployment.Spec.Validations.InitialDelay = &metav1.Duration{Duration: 20 * time.Second}
+		newKanaryDeployment.Spec.Validations.MaxIntervalPeriod = &metav1.Duration{Duration: 10 * time.Second}
+	}
+
+	if o.userDryRun {
+		newKanaryDeployment.Spec.Validations.NoUpdate = true
 	}
 
 	newKanaryDeployment = v1alpha1.DefaultKanaryDeployment(newKanaryDeployment)

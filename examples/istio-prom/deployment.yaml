@@ -1,0 +1,22 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+        version: v1
+    spec:
+      containers:
+      - name: myapp
+        image: kanary/simpleserver:latest
+        imagePullPolicy: IfNotPresent
+        args: ["--responseTime=5:150,50:100,100:80"]
+        ports:
+        - containerPort: 8080

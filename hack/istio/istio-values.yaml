@@ -1,0 +1,87 @@
+#
+# Minimal Istio Configuration required by Flagger
+#
+
+# pilot configuration
+pilot:
+  enabled: true
+  sidecar: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+  
+# sidecar-injector webhook configuration
+sidecarInjectorWebhook:
+  enabled: true
+
+# mixer configuration
+mixer:
+  policy:
+    enabled: false
+    replicaCount: 1
+    autoscaleEnabled: false
+  telemetry:
+    enabled: true
+    replicaCount: 1
+    autoscaleEnabled: false
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+
+# addon prometheus configuration
+prometheus:
+  enabled: true
+  scrapeInterval: 5s
+
+grafana:
+  enabled: true
+
+kiali:
+  enabled: false
+
+# addon jaeger tracing configuration
+tracing:
+  enabled: false
+
+# galley configuration
+galley:
+  enabled: false
+
+gateways:
+  enabled: true
+
+servicegraph:
+  enabled: false
+
+istio_cni:
+  enabled: false
+
+istiocoredns:
+  enabled: false
+# Common settings.
+global:
+  proxy:
+    # Resources for the sidecar.
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 1000m
+        memory: 256Mi
+  useMCP: false
+  
+  k8sIngress:
+    enabled: false
+    # Gateway used for k8s Ingress resources. By default it is
+    # using 'istio:ingressgateway' that will be installed by setting
+    # 'gateways.enabled' and 'gateways.istio-ingressgateway.enabled'
+    # flags to true.
+    gatewayName: ingressgateway
+    # enableHttps will add port 443 on the ingress.
+    # It REQUIRES that the certificates are installed  in the
+    # expected secrets - enabling this option without certificates
+    # will result in LDS rejection and the ingress will not work.
+    enableHttps: false

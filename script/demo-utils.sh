@@ -39,7 +39,7 @@ function maybe_first_prompt() {
 
 function run() {
     maybe_first_prompt
-    rate=25
+    rate=60
     if [ -n "${DEMO_RUN_FAST}" ]; then
       rate=1000
     fi

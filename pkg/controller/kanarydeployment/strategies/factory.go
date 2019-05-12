@@ -155,47 +155,60 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		}
 	}
 
-	if reaminingDelay, done := validation.IsValidationDelayPeriodDone(kd); done {
-		reqLogger.Info("Check Validation")
-		var results []*validation.Result
-		var errs []error
-		for _, validationItem := range s.validations {
-			var result *validation.Result
-			result, err = validationItem.Validation(kclient, reqLogger, kd, dep, canarydep)
-			if err != nil {
-				errs = append(errs, err)
-			}
-			results = append(results, result)
-		}
-		if len(errs) > 0 {
-			return &kd.Status, reconcile.Result{Requeue: true}, utilerrors.NewAggregate(errs)
-		}
-		var needUpdateDeployment bool
-		var failed bool
-		status, result, failed, needUpdateDeployment = computeStatus(results, status)
-		if needReturn(&result) {
-			return status, result, nil
-		}
-		if !failed && needUpdateDeployment && !kd.Spec.Validations.NoUpdate {
-			var newDep *appsv1beta1.Deployment
-			newDep, err = utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
-			if err != nil {
-				reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
-				return status, result, err
-			}
-			err = kclient.Update(context.TODO(), newDep)
-			if err != nil {
-				reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name, "newDep", *newDep)
-				return status, result, err
-			}
-		}
-		if needUpdateDeployment && !failed {
-			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
-		}
-	} else {
+	//before going to validation step, let's check that initial delay period is completed
+	if reaminingDelay, done := validation.IsInitialDelayDone(kd); !done {
 		reqLogger.Info("Check Validation", "requeue-initial-delay", reaminingDelay)
 		result.RequeueAfter = reaminingDelay
 		return status, result, err
+	}
+
+	reqLogger.Info("Check Validation")
+	validationDeadlineDone := validation.IsDeadlinePeriodDone(kd)
+	var results []*validation.Result
+	var errs []error
+	for _, validationItem := range s.validations {
+		var result *validation.Result
+		result, err = validationItem.Validation(kclient, reqLogger, kd, dep, canarydep)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		results = append(results, result)
+	}
+	if len(errs) > 0 {
+		return &kd.Status, reconcile.Result{Requeue: true}, utilerrors.NewAggregate(errs)
+	}
+
+	var needUpdateDeployment bool
+	var failed bool
+	status, result, failed, needUpdateDeployment = computeStatus(results, status)
+
+	if needReturn(&result) {
+		reqLogger.Info("Check Validation - NeedReturn", "failed", failed, "requeue", result.Requeue, "requeueAfter", result.RequeueAfter.Seconds())
+		return status, result, nil
+	}
+
+	if !validationDeadlineDone && !failed { // to force requeue at next period in case all validation succeed
+		d := validation.GetNextValidationCheckDuration(kd)
+		reqLogger.Info("Check Validation", "Periodic-Requeue", d)
+		return status, reconcile.Result{RequeueAfter: d}, nil
+	}
+
+	if !failed && needUpdateDeployment && !kd.Spec.Validations.NoUpdate {
+		var newDep *appsv1beta1.Deployment
+		newDep, err = utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
+		if err != nil {
+			reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
+			return status, result, err
+		}
+		err = kclient.Update(context.TODO(), newDep)
+		if err != nil {
+			reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name, "newDep", *newDep)
+			return status, result, err
+		}
+	}
+	if needUpdateDeployment && !failed {
+		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
+
 	}
 
 	return status, result, err

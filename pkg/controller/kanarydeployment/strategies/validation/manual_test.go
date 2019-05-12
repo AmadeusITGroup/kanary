@@ -37,22 +37,29 @@ func Test_manualImpl_Validation(t *testing.T) {
 		namespace       = "kanary"
 		defaultReplicas = int32(5)
 
-		defaultValidationSpec = &kanaryv1alpha1.KanaryDeploymentSpecValidation{
-			Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{},
-		}
-
-		validatedManualSpec = &kanaryv1alpha1.KanaryDeploymentSpecValidation{
-			Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
-				Status: kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus,
+		defaultValidationSpec = &kanaryv1alpha1.KanaryDeploymentSpecValidationList{
+			Items: []kanaryv1alpha1.KanaryDeploymentSpecValidation{
+				{
+					Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{},
+				},
 			},
+		}
+		validatedManualSpec = &kanaryv1alpha1.KanaryDeploymentSpecValidationList{
+			Items: []kanaryv1alpha1.KanaryDeploymentSpecValidation{
+				{
+					Manual: &kanaryv1alpha1.KanaryDeploymentSpecValidationManual{
+						Status: kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus,
+					},
+				},
+			},
+			MaxIntervalPeriod: &metav1.Duration{Duration: 15 * time.Second},
+			ValidationPeriod:  &metav1.Duration{Duration: 30 * time.Second},
 		}
 	)
 
 	type fields struct {
 		deadlineStatus         kanaryv1alpha1.KanaryDeploymentSpecValidationManualDeadineStatus
 		validationManualStatus kanaryv1alpha1.KanaryDeploymentSpecValidationManualStatus
-		validationPeriod       time.Duration
-		maxIntervalPeriod      time.Duration
 		dryRun                 bool
 	}
 	type args struct {
@@ -72,7 +79,7 @@ func Test_manualImpl_Validation(t *testing.T) {
 			name: "default manual validation spec",
 			args: args{
 				kclient:   fake.NewFakeClient([]runtime.Object{}...),
-				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: defaultValidationSpec}),
+				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validations: defaultValidationSpec}),
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
 			},
@@ -88,12 +95,12 @@ func Test_manualImpl_Validation(t *testing.T) {
 				validationManualStatus: kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualStatus,
 			},
 			args: args{
-				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
+				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validations: validatedManualSpec}),
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
 				kclient: fake.NewFakeClient([]runtime.Object{
 					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
-					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validations: validatedManualSpec}),
 				}...),
 			},
 			want: &Result{
@@ -109,12 +116,12 @@ func Test_manualImpl_Validation(t *testing.T) {
 				validationManualStatus: kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualStatus,
 			},
 			args: args{
-				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
+				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validations: validatedManualSpec}),
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, nil),
 				kclient: fake.NewFakeClient([]runtime.Object{
 					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
-					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validations: validatedManualSpec}),
 				}...),
 			},
 			want: &Result{
@@ -129,15 +136,14 @@ func Test_manualImpl_Validation(t *testing.T) {
 			fields: fields{
 				deadlineStatus:         kanaryv1alpha1.ValidKanaryDeploymentSpecValidationManualDeadineStatus,
 				validationManualStatus: "",
-				validationPeriod:       15 * time.Minute,
 			},
 			args: args{
-				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{StartTime: &creationTime, Validation: validatedManualSpec}),
+				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{StartTime: &creationTime, Validations: validatedManualSpec}),
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
 				kclient: fake.NewFakeClient([]runtime.Object{
 					utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
-					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validations: validatedManualSpec}),
 				}...),
 			},
 			want: &Result{
@@ -152,15 +158,14 @@ func Test_manualImpl_Validation(t *testing.T) {
 			fields: fields{
 				deadlineStatus:         kanaryv1alpha1.InvalidKanaryDeploymentSpecValidationManualDeadineStatus,
 				validationManualStatus: "",
-				validationPeriod:       15 * time.Minute,
 			},
 			args: args{
-				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{StartTime: &creationTime, Validation: validatedManualSpec}),
+				kd:        kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{StartTime: &creationTime, Validations: validatedManualSpec}),
 				dep:       utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
 				kclient: fake.NewFakeClient([]runtime.Object{
 					utilstest.NewDeployment(name, namespace, defaultReplicas, &utilstest.NewDeploymentOptions{CreationTime: &creationTime}),
-					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validation: validatedManualSpec}),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Validations: validatedManualSpec}),
 				}...),
 			},
 			want: &Result{
@@ -177,8 +182,6 @@ func Test_manualImpl_Validation(t *testing.T) {
 			m := &manualImpl{
 				deadlineStatus:         tt.fields.deadlineStatus,
 				validationManualStatus: tt.fields.validationManualStatus,
-				validationPeriod:       tt.fields.validationPeriod,
-				maxIntervalPeriod:      tt.fields.maxIntervalPeriod,
 				dryRun:                 tt.fields.dryRun,
 			}
 			got, err := m.Validation(tt.args.kclient, reqLogger, tt.args.kd, tt.args.dep, tt.args.canaryDep)

@@ -128,7 +128,7 @@ func TestDefaultKanaryDeployment(t *testing.T) {
 							Duration: 0 * time.Minute,
 						},
 						MaxIntervalPeriod: &metav1.Duration{
-							Duration: 1 * time.Minute,
+							Duration: 20 * time.Second,
 						},
 						Items: []KanaryDeploymentSpecValidation{
 							{
@@ -322,7 +322,7 @@ func Test_defaultKanaryDeploymentSpecValidationList(t *testing.T) {
 					Duration: 0 * time.Minute,
 				},
 				MaxIntervalPeriod: &metav1.Duration{
-					Duration: 1 * time.Minute,
+					Duration: 20 * time.Second,
 				},
 				Items: []KanaryDeploymentSpecValidation{
 					{
@@ -346,7 +346,7 @@ func Test_defaultKanaryDeploymentSpecValidationList(t *testing.T) {
 					Duration: 0 * time.Minute,
 				},
 				MaxIntervalPeriod: &metav1.Duration{
-					Duration: 1 * time.Minute,
+					Duration: 20 * time.Second,
 				},
 				Items: []KanaryDeploymentSpecValidation{
 					{

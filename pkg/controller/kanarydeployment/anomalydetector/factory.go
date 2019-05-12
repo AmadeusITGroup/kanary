@@ -9,6 +9,7 @@ type FactoryConfig struct {
 	Config
 	DiscreteValueOutOfListConfig   *DiscreteValueOutOfListConfig
 	ContinuousValueDeviationConfig *ContinuousValueDeviationConfig
+	ValueInRangeConfig             *ValueInRangeConfig
 	PromConfig                     *ConfigPrometheusAnomalyDetector
 	CustomService                  string
 	customFactory                  Factory //for test purpose
@@ -24,12 +25,19 @@ func New(cfg FactoryConfig) (AnomalyDetector, error) {
 
 	errMulti := fmt.Errorf("invalide multiple configuration")
 	if cfg.CustomService != "" {
-		if cfg.DiscreteValueOutOfListConfig != nil || cfg.ContinuousValueDeviationConfig != nil {
+		if cfg.DiscreteValueOutOfListConfig != nil || cfg.ContinuousValueDeviationConfig != nil || cfg.ValueInRangeConfig != nil {
 			return nil, errMulti
 		}
 	}
-	if cfg.DiscreteValueOutOfListConfig != nil && cfg.ContinuousValueDeviationConfig != nil {
-		return nil, errMulti
+	if cfg.DiscreteValueOutOfListConfig != nil {
+		if cfg.ContinuousValueDeviationConfig != nil || cfg.ValueInRangeConfig != nil {
+			return nil, errMulti
+		}
+	}
+	if cfg.ContinuousValueDeviationConfig != nil {
+		if cfg.DiscreteValueOutOfListConfig != nil || cfg.ValueInRangeConfig != nil {
+			return nil, errMulti
+		}
 	}
 
 	switch {
@@ -39,6 +47,9 @@ func New(cfg FactoryConfig) (AnomalyDetector, error) {
 	case cfg.PromConfig != nil && cfg.ContinuousValueDeviationConfig != nil:
 		cfg.PromConfig.logger = cfg.Logger
 		return newContinuousValueDeviationWithProm(cfg.Config, *cfg.ContinuousValueDeviationConfig, *cfg.PromConfig)
+	case cfg.PromConfig != nil && cfg.ValueInRangeConfig != nil:
+		cfg.PromConfig.logger = cfg.Logger
+		return newValueInRangeWithProm(cfg.Config, *cfg.ValueInRangeConfig, *cfg.PromConfig)
 	case cfg.CustomService != "":
 		return newCustomAnalyser(cfg.CustomService, cfg.Config)
 	case cfg.customFactory != nil:
@@ -55,6 +66,21 @@ func newCustomAnalyser(customService string, cfg Config) (*CustomAnomalyDetector
 	}
 	c.init()
 	return c, nil
+}
+
+//newValueInRangeWithProm buld an anomaly detector for value in range based on prometheus
+func newValueInRangeWithProm(configAnalyser Config, configValueInRange ValueInRangeConfig, configProm ConfigPrometheusAnomalyDetector) (AnomalyDetector, error) {
+
+	a := &ValueInRangeAnalyser{
+		ConfigAnalyser: configAnalyser,
+		ConfigSpecific: configValueInRange,
+	}
+
+	var err error
+	if a.analyser, err = newPromValueInRangeAnalyser(configProm, configValueInRange); err != nil {
+		return nil, err
+	}
+	return a, nil
 }
 
 //newContinuousValueDeviationWithProm buld an anomaly detector for Continuous value deviation based on prometheus

@@ -145,8 +145,16 @@ func isDefaultedKanaryDeploymentSpecValidationPromQL(pq *KanaryDeploymentSpecVal
 	if pq.ContinuousValueDeviation != nil && !isDefaultedKanaryDeploymentSpecValidationPromQLContinuous(pq.ContinuousValueDeviation) {
 		return false
 	}
+	if pq.ValueInRange != nil && !isDefaultedKanaryDeploymentSpecValidationPromQLValueInRange(pq.ValueInRange) {
+		return false
+	}
+
 	return true
 }
+func isDefaultedKanaryDeploymentSpecValidationPromQLValueInRange(c *ValueInRange) bool {
+	return c.Min != nil && c.Max != nil
+}
+
 func isDefaultedKanaryDeploymentSpecValidationPromQLContinuous(c *ContinuousValueDeviation) bool {
 	return c.MaxDeviationPercent != nil
 }
@@ -244,7 +252,7 @@ func defaultKanaryDeploymentSpecValidationList(list *KanaryDeploymentSpecValidat
 	}
 	if list.MaxIntervalPeriod == nil {
 		list.MaxIntervalPeriod = &metav1.Duration{
-			Duration: 1 * time.Minute,
+			Duration: 20 * time.Second,
 		}
 	}
 
@@ -286,12 +294,22 @@ func defaultKanaryDeploymentSpecValidationPromQL(pq *KanaryDeploymentSpecValidat
 	if pq.DiscreteValueOutOfList != nil {
 		defaultKanaryDeploymentSpecValidationPromQLDiscreteValueOutOfList(pq.DiscreteValueOutOfList)
 	}
+	if pq.ValueInRange != nil {
+		defaultKanaryDeploymentSpecValidationPromQLValueInRange(pq.ValueInRange)
+	}
+}
+func defaultKanaryDeploymentSpecValidationPromQLValueInRange(c *ValueInRange) {
+	if c.Min == nil {
+		c.Min = NewFloat64(0)
+	}
+	if c.Max == nil {
+		c.Max = NewFloat64(1)
+	}
 }
 func defaultKanaryDeploymentSpecValidationPromQLContinuous(c *ContinuousValueDeviation) {
 	if c.MaxDeviationPercent == nil {
 		c.MaxDeviationPercent = NewFloat64(10)
 	}
-
 }
 func defaultKanaryDeploymentSpecValidationPromQLDiscreteValueOutOfList(d *DiscreteValueOutOfList) {
 	if d.TolerancePercent == nil {

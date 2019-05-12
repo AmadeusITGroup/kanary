@@ -225,7 +225,6 @@ func (k *kanaryServiceImpl) clearServices(kclient client.Client, reqLogger logr.
 
 //Set the labels on the kanary pods to match the service
 func (k *kanaryServiceImpl) updatePodLabels(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, service *corev1.Service) (needsReturn bool, result reconcile.Result, err error) {
-	// in this case remove the pod from live traffic service.
 	pods := &corev1.PodList{}
 	selector := labels.Set{
 		kanaryv1alpha1.KanaryDeploymentKanaryNameLabelKey: kd.Name,

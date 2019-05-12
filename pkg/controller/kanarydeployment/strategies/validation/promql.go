@@ -64,8 +64,8 @@ func (pl *promqlPodLister) Get(name string) (*corev1.Pod, error) {
 	return pod, nil
 }
 
-func (p *promqlImpl) initAnomalyDetector(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canaryDep *appsv1beta1.Deployment) error {
-	//config is kind of cloned but thqt qlloz decoupling between the CRD definition and the anomalydetector package
+func (p *promqlImpl) initAnomalyDetector(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, labelSelector map[string]string) error {
+	//config is kind of cloned but that allow decoupling between the CRD definition and the anomalydetector package
 	anomalyDetectorConfig := anomalydetector.FactoryConfig{
 		Config: anomalydetector.Config{
 			Logger: reqLogger,
@@ -73,11 +73,12 @@ func (p *promqlImpl) initAnomalyDetector(kclient client.Client, reqLogger logr.L
 				kclient:   kclient,
 				Namespace: kd.Namespace,
 			},
-			Selector: labels.SelectorFromSet(canaryDep.Spec.Selector.MatchLabels),
+			Selector: labels.SelectorFromSet(labelSelector),
 		},
 		PromConfig: &anomalydetector.ConfigPrometheusAnomalyDetector{
 			PrometheusService: p.validationSpec.PrometheusService,
 			PodNameKey:        p.validationSpec.PodNameKey,
+			AllPodsQuery:      p.validationSpec.AllPodsQuery,
 			Query:             p.validationSpec.Query,
 		},
 	}
@@ -85,6 +86,11 @@ func (p *promqlImpl) initAnomalyDetector(kclient client.Client, reqLogger logr.L
 	if p.validationSpec.ContinuousValueDeviation != nil {
 		anomalyDetectorConfig.ContinuousValueDeviationConfig = &anomalydetector.ContinuousValueDeviationConfig{
 			MaxDeviationPercent: *p.validationSpec.ContinuousValueDeviation.MaxDeviationPercent,
+		}
+	} else if p.validationSpec.ValueInRange != nil {
+		anomalyDetectorConfig.ValueInRangeConfig = &anomalydetector.ValueInRangeConfig{
+			Min: *p.validationSpec.ValueInRange.Min,
+			Max: *p.validationSpec.ValueInRange.Max,
 		}
 	} else if p.validationSpec.DiscreteValueOutOfList != nil {
 		anomalyDetectorConfig.DiscreteValueOutOfListConfig = &anomalydetector.DiscreteValueOutOfListConfig{
@@ -111,28 +117,25 @@ func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 	result := &Result{}
 
 	//re-init the anomaly detector at each validation in case some settings have changed in the kd
-	if err = p.initAnomalyDetector(kclient, reqLogger, kd, dep, canaryDep); err != nil {
+	if err = p.initAnomalyDetector(kclient, reqLogger, kd, canaryDep.Spec.Selector.MatchLabels); err != nil {
 		return result, err
 	}
 	// By default a Deployement is valid until a Label is discovered on pod or deployment.
-
 	pods, err := p.anomalydetector.GetPodsOutOfBounds()
 	if err != nil {
+		reqLogger.Error(err, "GetPodsOutOfBounds")
 		return result, err
 	}
 
 	//Check if at least one kanary pod was detected by anomaly detector
 	if len(pods) > 0 {
 		result.IsFailed = true
+		reqLogger.Info("GetPodsOutOfBounds", "detection", len(pods))
 	}
 
 	var deadlineReached bool
 	if canaryDep != nil {
-		var requeueAfter time.Duration
-		requeueAfter, deadlineReached = isDeadlinePeriodDone(p.validationPeriod, p.maxIntervalPeriod, canaryDep.CreationTimestamp.Time, time.Now())
-		if !deadlineReached {
-			result.RequeueAfter = requeueAfter
-		}
+		deadlineReached = IsDeadlinePeriodDone(kd)
 		if deadlineReached && !result.IsFailed {
 			result.NeedUpdateDeployment = true
 		}

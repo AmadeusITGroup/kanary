@@ -29,14 +29,6 @@ type ContinuousValueDeviationAnalyser struct {
 	analyser continuousValueAnalyser
 }
 
-// func excludePodFromComparisonKubervisor(p *kapiv1.Pod) (bool, error) {
-// 	traffic, _, err2 := labeling.IsPodTrafficLabelOkOrPause(p)
-// 	if err2 != nil {
-// 		return nil, err2
-// 	}
-// 	return !traffic, nil
-// }
-
 //GetPodsOutOfBounds implements interface AnomalyDetector
 func (d *ContinuousValueDeviationAnalyser) GetPodsOutOfBounds() ([]*kapiv1.Pod, error) {
 	listOfPods, err := d.ConfigAnalyser.PodLister.List(d.ConfigAnalyser.Selector)
@@ -67,6 +59,16 @@ func (d *ContinuousValueDeviationAnalyser) GetPodsOutOfBounds() ([]*kapiv1.Pod, 
 		zeroErr := fmt.Errorf("maxDeviation=0 for continuous value analysis")
 		d.ConfigAnalyser.Logger.Error(zeroErr, "")
 		return nil, zeroErr
+	}
+
+	//check if the key is GlobalKeyQuery that means that the result is applicable to all pods
+	if len(deviationByPods) == 1 {
+		if v, ok := deviationByPods[GlobalQueryKey]; ok {
+			for _, pod := range podByName {
+				deviationByPods[pod.Name] = v
+			}
+			delete(deviationByPods, GlobalQueryKey)
+		}
 	}
 
 	for podName, deviation := range deviationByPods {

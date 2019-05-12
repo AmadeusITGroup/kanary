@@ -55,6 +55,13 @@ run "kubectl get ep"
 
 kubectl proxy --port=8001&
 proxyPID=$!
+function killProxy {
+  echo "Stopping kubeproxy"
+  kill -9 ${proxyPID}
+  cd "$CURRENT"
+}
+trap killProxy EXIT
+
 desc "Starting kubctl proxy: pid=${proxyPID}"
 
 desc "Let's check who is behind the myapp-svc"
@@ -84,9 +91,5 @@ run "kubectl get all"
 desc "Inventory of objects"
 run "kubectl get all"
 
-kill -9 ${proxyPID}
-
 desc "cleaning the system"
 run "kubectl delete ns multikanary"
-
-
