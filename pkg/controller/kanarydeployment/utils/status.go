@@ -15,29 +15,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
 )
 
-// UpdateKanaryDeploymentStatusForFailure used to update the KanaryDeployment.Status if it has changed.
-func UpdateKanaryDeploymentStatusForFailure(kclient client.StatusWriter, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, now metav1.Time, result reconcile.Result, err error) (reconcile.Result, error) {
-	newStatus := kd.Status.DeepCopy()
-	UpdateKanaryDeploymentStatusConditionsFailure(newStatus, now, err)
-	return UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err)
-}
-
 // UpdateKanaryDeploymentStatus used to update the KanaryDeployment.Status if it has changed.
 func UpdateKanaryDeploymentStatus(kclient client.StatusWriter, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, newStatus *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) (reconcile.Result, error) {
-	updatedStatus := updateStatusWithReport(kd, newStatus)
-	if !apiequality.Semantic.DeepEqual(&kd.Status, updatedStatus) {
+	//No need to go further if the same pointer is given
+	if &kd.Status == newStatus {
+		return result, err
+	}
+
+	updateStatusReport(kd, newStatus)
+	if !apiequality.Semantic.DeepEqual(&kd.Status, newStatus) {
 		updatedKd := kd.DeepCopy()
-		updatedKd.Status = *updatedStatus
+		updatedKd.Status = *newStatus
 		err2 := kclient.Update(context.TODO(), updatedKd)
 		if err2 != nil {
 			reqLogger.Error(err2, "failed to update KanaryDeployment status", "KanaryDeployment.Namespace", updatedKd.Namespace, "KanaryDeployment.Name", updatedKd.Name)
 			return reconcile.Result{}, err2
 		}
 	}
-
 	return result, err
 }
 
@@ -78,8 +76,23 @@ func NewKanaryDeploymentStatusCondition(conditionType kanaryv1alpha1.KanaryDeplo
 	}
 }
 
+// IsKanaryDeploymentErrored returns true if the KanaryDeployment has failed, else returns false
+func IsKanaryDeploymentErrored(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
+	if status == nil {
+		return false
+	}
+	id := getIndexForConditionType(status, kanaryv1alpha1.ErroredKanaryDeploymentConditionType)
+	if id >= 0 && status.Conditions[id].Status == corev1.ConditionTrue {
+		return true
+	}
+	return false
+}
+
 // IsKanaryDeploymentFailed returns true if the KanaryDeployment has failed, else returns false
 func IsKanaryDeploymentFailed(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
+	if status == nil {
+		return false
+	}
 	id := getIndexForConditionType(status, kanaryv1alpha1.FailedKanaryDeploymentConditionType)
 	if id >= 0 && status.Conditions[id].Status == corev1.ConditionTrue {
 		return true
@@ -89,6 +102,9 @@ func IsKanaryDeploymentFailed(status *kanaryv1alpha1.KanaryDeploymentStatus) boo
 
 // IsKanaryDeploymentSucceeded returns true if the KanaryDeployment has succeeded, else return false
 func IsKanaryDeploymentSucceeded(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
+	if status == nil {
+		return false
+	}
 	id := getIndexForConditionType(status, kanaryv1alpha1.SucceededKanaryDeploymentConditionType)
 	if id >= 0 && status.Conditions[id].Status == corev1.ConditionTrue {
 		return true
@@ -96,8 +112,28 @@ func IsKanaryDeploymentSucceeded(status *kanaryv1alpha1.KanaryDeploymentStatus) 
 	return false
 }
 
+// IsKanaryDeploymentDeploymentUpdated returns true if the KanaryDeployment has lead to deployment update
+func IsKanaryDeploymentDeploymentUpdated(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
+	if status == nil {
+		return false
+	}
+	id := getIndexForConditionType(status, kanaryv1alpha1.DeploymentUpdatedKanaryDeploymentConditionType)
+	if id >= 0 && status.Conditions[id].Status == corev1.ConditionTrue {
+		return true
+	}
+	return false
+}
+
+// IsKanaryDeploymentRunning returns true if the KanaryDeployment is runnning
+func IsKanaryDeploymentRunning(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
+	return !IsKanaryDeploymentFailed(status) && !IsKanaryDeploymentSucceeded(status) && !IsKanaryDeploymentDeploymentUpdated(status)
+}
+
 func getIndexForConditionType(status *kanaryv1alpha1.KanaryDeploymentStatus, t kanaryv1alpha1.KanaryDeploymentConditionType) int {
 	idCondition := -1
+	if status == nil {
+		return idCondition
+	}
 	for i, condition := range status.Conditions {
 		if condition.Type == t {
 			idCondition = i
@@ -108,12 +144,21 @@ func getIndexForConditionType(status *kanaryv1alpha1.KanaryDeploymentStatus, t k
 }
 
 func getReportStatus(status *kanaryv1alpha1.KanaryDeploymentStatus) string {
-	if IsKanaryDeploymentSucceeded(status) {
-		return "Succeeded"
-	} else if IsKanaryDeploymentFailed(status) {
-		return "Failed"
+
+	// Order matters compare to the lifecycle of the kanary during validation
+
+	if IsKanaryDeploymentFailed(status) {
+		return string(v1alpha1.FailedKanaryDeploymentConditionType)
 	}
-	return "Running"
+
+	if IsKanaryDeploymentDeploymentUpdated(status) {
+		return string(v1alpha1.DeploymentUpdatedKanaryDeploymentConditionType)
+	}
+
+	if IsKanaryDeploymentSucceeded(status) {
+		return string(v1alpha1.SucceededKanaryDeploymentConditionType)
+	}
+	return string(v1alpha1.RunningKanaryDeploymentConditionType)
 }
 
 func getValidation(kd *kanaryv1alpha1.KanaryDeployment) string {
@@ -146,17 +191,11 @@ func getTraffic(kd *kanaryv1alpha1.KanaryDeployment) string {
 	return string(kd.Spec.Traffic.Source)
 }
 
-func updateStatusWithReport(kd *kanaryv1alpha1.KanaryDeployment, status *kanaryv1alpha1.KanaryDeploymentStatus) *kanaryv1alpha1.KanaryDeploymentStatus {
-	newReport := kanaryv1alpha1.KanaryDeploymentStatusReport{
-		Status:     getReportStatus(&kd.Status),
+func updateStatusReport(kd *kanaryv1alpha1.KanaryDeployment, status *kanaryv1alpha1.KanaryDeploymentStatus) {
+	status.Report = kanaryv1alpha1.KanaryDeploymentStatusReport{
+		Status:     getReportStatus(status),
 		Validation: getValidation(kd),
 		Scale:      getScale(kd),
 		Traffic:    getTraffic(kd),
 	}
-	if !apiequality.Semantic.DeepEqual(status.Report, newReport) {
-		newStatus := status.DeepCopy()
-		newStatus.Report = newReport
-		return newStatus
-	}
-	return status
 }

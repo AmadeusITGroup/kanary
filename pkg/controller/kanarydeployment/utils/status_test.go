@@ -230,8 +230,8 @@ func Test_updateStatusWithReport(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := updateStatusWithReport(tt.args.kd, tt.args.status); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("updateStatusWithReport() = %v, want %v", got, tt.want)
+			if updateStatusReport(tt.args.kd, tt.args.status); !reflect.DeepEqual(tt.args.status, tt.want) {
+				t.Errorf("updateStatusWithReport() = %v, want %v", tt.args.status, tt.want)
 			}
 		})
 	}

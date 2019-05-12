@@ -75,8 +75,7 @@ func Test_promqlImpl_Validation(t *testing.T) {
 				canaryDep: utilstest.NewDeployment(name+"-kanary-"+name, namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime, Labels: map[string]string{"foo": "bar", "foo-k": "bar-k"}, Selector: map[string]string{"foo-k": "bar-k"}}),
 			},
 			want: &Result{
-				IsFailed:             false,
-				NeedUpdateDeployment: true,
+				IsFailed: false,
 			},
 			wantErr: false,
 		},
@@ -103,9 +102,8 @@ func Test_promqlImpl_Validation(t *testing.T) {
 				canaryDep: utilstest.NewDeployment(name+"-kanary-"+name, namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime, Labels: map[string]string{"foo": "bar", "foo-k": "bar-k"}, Selector: map[string]string{"foo-k": "bar-k"}}),
 			},
 			want: &Result{
-				IsFailed:             true,
-				NeedUpdateDeployment: false,
-				Comment:              "promQL query reported an issue with one of the kanary pod",
+				IsFailed: true,
+				Comment:  "promQL query reported an issue with one of the kanary pod",
 			},
 			wantErr: false,
 		},

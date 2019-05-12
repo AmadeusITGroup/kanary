@@ -29,7 +29,7 @@ function kanaryStatus() {
 
 function kanaryCompleted() {
   local status=$(kanaryStatus "${1}")
-  if [ "${status}" == "Failed" ] || [ "${status}" == "Succeeded" ] || [ "${status}" == "Errored" ]; then echo "true"; else echo "false"; fi
+  if [ "${status}" == "Failed" ] || [ "${status}" == "Succeeded" ] || [ "${status}" == "DeploymentUpdated" ] || [ "${status}" == "Errored" ]; then echo "true"; else echo "false"; fi
 }
 
 function wait_for_kanary() {

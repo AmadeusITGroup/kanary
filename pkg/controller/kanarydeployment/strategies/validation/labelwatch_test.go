@@ -15,7 +15,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -91,8 +90,7 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 			},
 			want: &Result{
-				IsFailed:             false,
-				NeedUpdateDeployment: true,
+				IsFailed: false,
 			},
 			wantErr: false,
 		},
@@ -111,8 +109,7 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 			},
 			want: &Result{
-				IsFailed:             false,
-				NeedUpdateDeployment: true,
+				IsFailed: false,
 			},
 			wantErr: false,
 		},
@@ -131,8 +128,7 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 			},
 			want: &Result{
-				IsFailed:             false,
-				NeedUpdateDeployment: false,
+				IsFailed: false,
 			},
 			wantErr: false,
 		},
@@ -151,13 +147,10 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 			},
 			want: &Result{
-				IsFailed:             false,
-				NeedUpdateDeployment: true,
-				Result:               reconcile.Result{},
+				IsFailed: false,
 			},
 			wantErr: false,
 		},
-		//
 		{
 			name: "deployment Selector: validation period not finished",
 			fields: fields{
@@ -173,8 +166,7 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime}),
 			},
 			want: &Result{
-				IsFailed:             false,
-				NeedUpdateDeployment: false,
+				IsFailed: false,
 			},
 			wantErr: false,
 		},
@@ -193,9 +185,8 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime, Labels: mapFailed}),
 			},
 			want: &Result{
-				IsFailed:             true,
-				NeedUpdateDeployment: false,
-				Comment:              "labelWatch has detected invalidation labels",
+				IsFailed: true,
+				Comment:  "labelWatch has detected invalidation labels",
 			},
 			wantErr: false,
 		},
@@ -214,9 +205,8 @@ func Test_labelWatchImpl_Validation(t *testing.T) {
 				canaryDep: utilstest.NewDeployment(name+"-kanary", namespace, 1, &utilstest.NewDeploymentOptions{CreationTime: creationTime, Labels: mapFailed}),
 			},
 			want: &Result{
-				IsFailed:             true,
-				NeedUpdateDeployment: false,
-				Comment:              "labelWatch has detected invalidation labels",
+				IsFailed: true,
+				Comment:  "labelWatch has detected invalidation labels",
 			},
 			wantErr: false,
 		},

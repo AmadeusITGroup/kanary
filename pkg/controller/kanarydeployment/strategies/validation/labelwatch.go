@@ -67,14 +67,6 @@ func (l *labelWatchImpl) Validation(kclient client.Client, reqLogger logr.Logger
 		}
 	}
 
-	var deadlineReached bool
-	if canaryDep != nil {
-		deadlineReached = IsDeadlinePeriodDone(kd)
-		if deadlineReached && isSucceed {
-			result.NeedUpdateDeployment = true
-		}
-	}
-
 	if !isSucceed {
 		result.IsFailed = true
 		result.Comment = "labelWatch has detected invalidation labels"

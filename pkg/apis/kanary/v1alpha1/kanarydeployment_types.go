@@ -284,6 +284,11 @@ const (
 	// FailedKanaryDeploymentConditionType is added in a kanarydeployment when the canary deployment
 	// process failed.
 	FailedKanaryDeploymentConditionType KanaryDeploymentConditionType = "Failed"
+	// RunningKanaryDeploymentConditionType is added in a kanarydeployment when the canary is still under validation.
+	RunningKanaryDeploymentConditionType KanaryDeploymentConditionType = "Running"
+	// DeploymentUpdated is added in a kanarydeployment when the canary succeded and that the deployment was updated
+	DeploymentUpdatedKanaryDeploymentConditionType KanaryDeploymentConditionType = "DeploymentUpdated"
+
 	// ErroredKanaryDeploymentConditionType is added in a kanarydeployment when the canary deployment
 	// process errored.
 	ErroredKanaryDeploymentConditionType KanaryDeploymentConditionType = "Errored"
