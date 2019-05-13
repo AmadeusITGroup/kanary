@@ -48,3 +48,15 @@ func (m *manualImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 
 	return result, err
 }
+
+//IsStatusAfterDeadlineNone check if there is a Manual Strategy that prevent automation with a None Status.
+func IsStatusAfterDeadlineNone(kd *kanaryv1alpha1.KanaryDeployment) bool {
+	for _, v := range kd.Spec.Validations.Items {
+		if v.Manual != nil {
+			if v.Manual.StatusAfterDealine == kanaryv1alpha1.NoneKanaryDeploymentSpecValidationManualDeadineStatus {
+				return true
+			}
+		}
+	}
+	return false
+}

@@ -166,6 +166,8 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 	if utils.IsKanaryDeploymentRunning(&kd.Status) {
 		reqLogger.Info("Check Validation")
 		validationDeadlineDone := validation.IsDeadlinePeriodDone(kd)
+
+		//Run validation for all strategies
 		var results []*validation.Result
 		var errs []error
 		for _, validationItem := range s.validations {
@@ -184,6 +186,8 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		var failMessages string
 		failMessages, forceSucceededNow = computeStatus(results)
 		failed := failMessages != ""
+
+		// If any strategy fails, the kanary should fail
 		if failed {
 			status := kd.Status.DeepCopy()
 			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, fmt.Sprintf("KanaryDeployment failed, %s", failMessages))
@@ -191,16 +195,26 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 			return status, reconcile.Result{Requeue: true}, nil
 		}
 
+		// So there is no failure, does someone force for an early Success ?
 		if forceSucceededNow {
 			status := kd.Status.DeepCopy()
 			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
 			return status, reconcile.Result{Requeue: true}, nil
 		}
 
-		if !validationDeadlineDone && !failed { // to force requeue at next period in case all validation succeed
+		// No failure, so if we have not reached the validation deadline, let's requeue for next validation
+		if !validationDeadlineDone && !failed {
 			d := validation.GetNextValidationCheckDuration(kd)
 			reqLogger.Info("Check Validation", "Periodic-Requeue", d)
 			return &kd.Status, reconcile.Result{RequeueAfter: d}, nil
+		}
+
+		// Validation completed and everything is ok while we have reached the end of the validation period...
+
+		//Particular case of the manual strategy with None as StatusAfterDeadline
+		if validation.IsStatusAfterDeadlineNone(kd) {
+			// No automation, no requeue, wait for manual input
+			return &kd.Status, reconcile.Result{}, nil
 		}
 
 		//Looks like it is a success for the kanary!
