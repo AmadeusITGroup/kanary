@@ -97,12 +97,13 @@ func (s *strategy) Apply(kclient client.Client, reqLogger logr.Logger, kd *kanar
 	return utils.UpdateKanaryDeploymentStatus(kclient.Status(), reqLogger, kd, newStatus, result, err) //Updating StatusSubresource may depends on Kubernetes version! https://book.kubebuilder.io/basics/status_subresource.html
 }
 
-func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (status *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) {
+func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error) {
+
 	reqLogger.Info("Cleanup scale")
 	// First cleanup if needed
 	for impl, activated := range s.scale {
 		if !activated {
-			status, result, err = impl.Clear(kclient, reqLogger, kd, canarydep)
+			status, result, err := impl.Clear(kclient, reqLogger, kd, canarydep)
 			if err != nil {
 				return status, result, fmt.Errorf("error during Clean processing, err: %v", err)
 			}
@@ -116,7 +117,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 	// First process cleanup
 	for impl, activated := range s.traffic {
 		if !activated {
-			status, result, err = impl.Cleanup(kclient, reqLogger, kd, canarydep)
+			status, result, err := impl.Cleanup(kclient, reqLogger, kd, canarydep)
 			if err != nil {
 				return status, result, fmt.Errorf("error during Traffic Cleanup processing, err: %v", err)
 			}
@@ -130,7 +131,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 	// then scale if need
 	for impl, activated := range s.scale {
 		if activated {
-			status, result, err = impl.Scale(kclient, reqLogger, kd, canarydep)
+			status, result, err := impl.Scale(kclient, reqLogger, kd, canarydep)
 			if err != nil {
 				return status, result, fmt.Errorf("error during Scale processing, err: %v", err)
 			}
@@ -144,7 +145,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 	// Then apply Traffic configuration
 	for impl, activated := range s.traffic {
 		if activated {
-			status, result, err = impl.Traffic(kclient, reqLogger, kd, canarydep)
+			status, result, err := impl.Traffic(kclient, reqLogger, kd, canarydep)
 			if err != nil {
 				return status, result, fmt.Errorf("error during Traffic processing, err: %v", err)
 			}
@@ -158,95 +159,122 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 	//before going to validation step, let's check that initial delay period is completed
 	if reaminingDelay, done := validation.IsInitialDelayDone(kd); !done {
 		reqLogger.Info("Check Validation", "requeue-initial-delay", reaminingDelay)
-		result.RequeueAfter = reaminingDelay
-		return status, result, err
+		return &kd.Status, reconcile.Result{RequeueAfter: reaminingDelay}, nil
 	}
 
-	reqLogger.Info("Check Validation")
-	validationDeadlineDone := validation.IsDeadlinePeriodDone(kd)
-	var results []*validation.Result
-	var errs []error
-	for _, validationItem := range s.validations {
-		var result *validation.Result
-		result, err = validationItem.Validation(kclient, reqLogger, kd, dep, canarydep)
-		if err != nil {
-			errs = append(errs, err)
+	//In ase we are still running let's run the validation
+	if utils.IsKanaryDeploymentRunning(&kd.Status) {
+		reqLogger.Info("Check Validation")
+		validationDeadlineDone := validation.IsDeadlinePeriodDone(kd)
+
+		//Run validation for all strategies
+		var results []*validation.Result
+		var errs []error
+		for _, validationItem := range s.validations {
+			var result *validation.Result
+			result, err := validationItem.Validation(kclient, reqLogger, kd, dep, canarydep)
+			if err != nil {
+				errs = append(errs, err)
+			}
+			results = append(results, result)
 		}
-		results = append(results, result)
-	}
-	if len(errs) > 0 {
-		return &kd.Status, reconcile.Result{Requeue: true}, utilerrors.NewAggregate(errs)
+		if len(errs) > 0 {
+			return &kd.Status, reconcile.Result{Requeue: true}, utilerrors.NewAggregate(errs)
+		}
+
+		var forceSucceededNow bool
+		var failMessages string
+		failMessages, forceSucceededNow = computeStatus(results)
+		failed := failMessages != ""
+
+		// If any strategy fails, the kanary should fail
+		if failed {
+			status := kd.Status.DeepCopy()
+			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, fmt.Sprintf("KanaryDeployment failed, %s", failMessages))
+			reqLogger.Info("Check Validation", "in failed", failMessages, "updated status", fmt.Sprintf("%#v", status))
+			return status, reconcile.Result{Requeue: true}, nil
+		}
+
+		// So there is no failure, does someone force for an early Success ?
+		if forceSucceededNow {
+			status := kd.Status.DeepCopy()
+			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
+			return status, reconcile.Result{Requeue: true}, nil
+		}
+
+		// No failure, so if we have not reached the validation deadline, let's requeue for next validation
+		if !validationDeadlineDone && !failed {
+			d := validation.GetNextValidationCheckDuration(kd)
+			reqLogger.Info("Check Validation", "Periodic-Requeue", d)
+			return &kd.Status, reconcile.Result{RequeueAfter: d}, nil
+		}
+
+		// Validation completed and everything is ok while we have reached the end of the validation period...
+
+		//Particular case of the manual strategy with None as StatusAfterDeadline
+		if validation.IsStatusAfterDeadlineNone(kd) {
+			// No automation, no requeue, wait for manual input
+			return &kd.Status, reconcile.Result{}, nil
+		}
+
+		//Looks like it is a success for the kanary!
+		status := kd.Status.DeepCopy()
+		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
+		return status, reconcile.Result{Requeue: true}, nil
 	}
 
-	var needUpdateDeployment bool
-	var failed bool
-	status, result, failed, needUpdateDeployment = computeStatus(results, status)
+	//In case of succeeded kanary, we may need to update the deployment
+	if utils.IsKanaryDeploymentSucceeded(&kd.Status) {
+		if kd.Spec.Validations.NoUpdate {
+			return &kd.Status, reconcile.Result{}, nil // nothing else to do... the kanary succeeded, and we are in dry-run mode
+		}
 
-	if needReturn(&result) {
-		reqLogger.Info("Check Validation - NeedReturn", "failed", failed, "requeue", result.Requeue, "requeueAfter", result.RequeueAfter.Seconds())
-		return status, result, nil
-	}
-
-	if !validationDeadlineDone && !failed { // to force requeue at next period in case all validation succeed
-		d := validation.GetNextValidationCheckDuration(kd)
-		reqLogger.Info("Check Validation", "Periodic-Requeue", d)
-		return status, reconcile.Result{RequeueAfter: d}, nil
-	}
-
-	if !failed && needUpdateDeployment && !kd.Spec.Validations.NoUpdate {
 		var newDep *appsv1beta1.Deployment
-		newDep, err = utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
+		newDep, err := utils.UpdateDeploymentWithKanaryDeploymentTemplate(kd, dep)
 		if err != nil {
 			reqLogger.Error(err, "failed to update the Deployment artifact", "Namespace", newDep.Namespace, "Deployment", newDep.Name)
-			return status, result, err
+			return &kd.Status, reconcile.Result{}, err
 		}
 		err = kclient.Update(context.TODO(), newDep)
 		if err != nil {
 			reqLogger.Error(err, "failed to update the Deployment", "Namespace", newDep.Namespace, "Deployment", newDep.Name, "newDep", *newDep)
-			return status, result, err
+			return &kd.Status, reconcile.Result{}, err
 		}
+		status := kd.Status.DeepCopy()
+		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.DeploymentUpdatedKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
+		return status, reconcile.Result{Requeue: true}, nil
 	}
-	if needUpdateDeployment && !failed {
-		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
-
-	}
-
-	return status, result, err
+	return &kd.Status, reconcile.Result{}, nil
 }
 
-func computeStatus(results []*validation.Result, status *kanaryv1alpha1.KanaryDeploymentStatus) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, bool, bool) {
-	newStatus := status.DeepCopy()
-	newResult := reconcile.Result{}
-	isFailed := false
-	needUpdateDeployment := true
+const (
+	unknownFailureReason = "unknown failure reason"
+)
+
+func computeStatus(results []*validation.Result) (failMessages string, forceSuccessNow bool) {
 	if len(results) == 0 {
-		return newStatus, newResult, isFailed, needUpdateDeployment
+		return "", forceSuccessNow
 	}
+	forceSuccessNow = true
 
 	comments := []string{}
 	for _, result := range results {
+
+		if !result.ForceSuccessNow {
+			forceSuccessNow = false
+		}
 		if result.IsFailed {
-			isFailed = true
-		}
-		if !result.NeedUpdateDeployment {
-			needUpdateDeployment = false
-		}
-		if result.Comment == "" {
-			comments = append(comments, result.Comment)
-		}
-		if result.Requeue {
-			newResult.Requeue = true
-		}
-		if newResult.RequeueAfter == 0 {
-			newResult.RequeueAfter = result.RequeueAfter
-		} else if newResult.RequeueAfter != 0 && result.RequeueAfter < newResult.RequeueAfter {
-			newResult.RequeueAfter = result.RequeueAfter
+			if result.Comment != "" {
+				comments = append(comments, result.Comment)
+			} else {
+				comments = append(comments, unknownFailureReason)
+			}
 		}
 	}
-	if isFailed {
-		utils.UpdateKanaryDeploymentStatusCondition(newStatus, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, fmt.Sprintf("KanaryDeployment failed, %s", strings.Join(comments, ",")))
+	if len(comments) > 0 {
+		failMessages = strings.Join(comments, ",")
 	}
-	return newStatus, newResult, isFailed, needUpdateDeployment
+	return failMessages, forceSuccessNow
 }
 
 func needReturn(result *reconcile.Result) bool {

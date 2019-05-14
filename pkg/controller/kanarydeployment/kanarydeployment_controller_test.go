@@ -258,7 +258,7 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			}
 			got, err := r.Reconcile(tt.request)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ReconcileKanaryDeployment.Reconcile() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ReconcileKanaryDeployment.Reconcile() wantErr error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {

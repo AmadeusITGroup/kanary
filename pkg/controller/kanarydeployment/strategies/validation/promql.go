@@ -133,14 +133,6 @@ func (p *promqlImpl) Validation(kclient client.Client, reqLogger logr.Logger, kd
 		reqLogger.Info("GetPodsOutOfBounds", "detection", len(pods))
 	}
 
-	var deadlineReached bool
-	if canaryDep != nil {
-		deadlineReached = IsDeadlinePeriodDone(kd)
-		if deadlineReached && !result.IsFailed {
-			result.NeedUpdateDeployment = true
-		}
-	}
-
 	if result.IsFailed {
 		result.Comment = "promQL query reported an issue with one of the kanary pod"
 	}
