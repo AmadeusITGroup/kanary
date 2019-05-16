@@ -33,8 +33,7 @@ e2e:
 	./test/e2e/launch.sh
 
 simple-server:
-	CGO_ENABLED=0 go build -i -installsuffix cgo -ldflags '-w' -o ./test/simple-server/docker/build/_output/simple-server ./test/simple-server
-	docker build -t kanary/simpleserver:latest ./test/simple-server/docker
+	docker build -t kanary/simpleserver:latest ./test/simple-server
     ifeq ($(KINDPUSH), true)
 	 kind load docker-image kanary/simpleserver:latest
     endif

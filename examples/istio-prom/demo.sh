@@ -97,7 +97,7 @@ run "# http://127.0.0.1:$LOCAL80  + Host modification plugin to match grafana.ex
 
 desc "Create a kanary with traffic=both and new version with response time degradation"
 desc "Let's look at the command, using kubectl plugin"
-command="kubectl kanary generate myapp --name=batman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=10:300,50:100,100:80\"'"
+command="kubectl kanary generate myapp --name=batman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" -o yaml"
 run "# ${command}"
 desc "Let's look at the create resource"
 run "${command} | less"
