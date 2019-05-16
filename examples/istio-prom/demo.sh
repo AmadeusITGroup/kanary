@@ -97,12 +97,11 @@ run "# http://127.0.0.1:$LOCAL80  + Host modification plugin to match grafana.ex
 
 desc "Create a kanary with traffic=both and new version with response time degradation"
 desc "Let's look at the command, using kubectl plugin"
-command="kubectl kanary generate myapp --name=batman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" -o yaml"
-run "# ${command}"
+run "# kubectl kanary generate myapp --name=batman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\""
 desc "Let's look at the create resource"
-run "${command} | less"
+run "kubectl kanary generate myapp --name=batman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --output=yaml | less"
 desc "Now let's inject it"
-DEMO_AUTO_RUN=1 run "${command} | kubectl apply -f -"
+DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=batman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=10:300,50:100,100:80\"' | kubectl apply -f -"
 
 desc "Monitoring the kanary..."
 wait_for_kanary batman
