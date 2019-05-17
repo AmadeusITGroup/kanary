@@ -36,4 +36,4 @@ comment:
 
 ignore:
   - "test/**/*"  # ignore folders and all its contents
-  - "zz_generated.*.go" # api generated files
+  - "**/zz_generated.*.go" # api generated files
