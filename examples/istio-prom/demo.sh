@@ -116,7 +116,7 @@ desc "Inventory of objects"
 run "kubectl get all"
 
 desc "Create a kanary with traffic=both and new version with correct response time"
-DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=hulk --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=10:100,50:50,100:10\"' | kubectl apply -f -"
+DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=hulk --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=5:90,50:10,100:0\"' | kubectl apply -f -"
 
 desc "Monitoring the kanary deployments..."
 wait_for_kanary hulk
@@ -127,9 +127,10 @@ run "kubectl get all"
 desc "Let's remove the kanary"
 DEMO_AUTO_RUN=1 run "kubectl delete kanary hulk"
 
-desc "What about doing 2 kanaries at the same time?"
-DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=superman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --dry-run | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=50:500,100:80\"' | kubectl apply -f -"
-DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=thor --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --dry-run | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=10:100,50:50,100:10\"' | kubectl apply -f -"
+desc "What about doing multiple (3) kanaries at the same time?"
+DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=thor --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --validation-promql-istio-success=\"0.95\" --dry-run | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=10:100,50:50,100:10\"' | kubectl apply -f -"
+DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=superman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --validation-promql-istio-success=\"0.95\" --dry-run | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=30:500,100:80\"' | kubectl apply -f -"
+DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=wonderwoman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --validation-promql-istio-success=\"0.95\" --dry-run | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseCode=30:500,100:200\"' | kubectl apply -f -"
 
 desc "Monitoring the kanaries"
 wait_for_kanary thor --getAll
