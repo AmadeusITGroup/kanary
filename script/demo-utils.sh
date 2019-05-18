@@ -43,7 +43,7 @@ function backtotop() {
 
 function run() {
     maybe_first_prompt
-    rate=25
+    rate=250
     if [ -n "$DEMO_RUN_FAST" ]; then
       rate=1000
     fi

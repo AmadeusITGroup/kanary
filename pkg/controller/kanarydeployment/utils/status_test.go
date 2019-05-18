@@ -135,12 +135,19 @@ func Test_updateStatusWithReport(t *testing.T) {
 					},
 				},
 				status: &kanaryv1alpha1.KanaryDeploymentStatus{
+					Conditions: []kanaryv1alpha1.KanaryDeploymentCondition{
+						kanaryv1alpha1.KanaryDeploymentCondition{
+							Status: corev1.ConditionTrue,
+							Type:   kanaryv1alpha1.ScheduledKanaryDeploymentConditionType,
+						},
+					},
+
 					Report: kanaryv1alpha1.KanaryDeploymentStatusReport{},
 				},
 			},
 			want: &kanaryv1alpha1.KanaryDeploymentStatus{
 				Report: kanaryv1alpha1.KanaryDeploymentStatusReport{
-					Status:     "Running",
+					Status:     string(kanaryv1alpha1.ScheduledKanaryDeploymentConditionType),
 					Scale:      "static",
 					Validation: "unknow",
 				},
@@ -162,12 +169,22 @@ func Test_updateStatusWithReport(t *testing.T) {
 					},
 				},
 				status: &kanaryv1alpha1.KanaryDeploymentStatus{
+					Conditions: []kanaryv1alpha1.KanaryDeploymentCondition{
+						kanaryv1alpha1.KanaryDeploymentCondition{
+							Status: corev1.ConditionTrue,
+							Type:   kanaryv1alpha1.ScheduledKanaryDeploymentConditionType,
+						},
+						kanaryv1alpha1.KanaryDeploymentCondition{
+							Status: corev1.ConditionTrue,
+							Type:   kanaryv1alpha1.RunningKanaryDeploymentConditionType,
+						},
+					},
 					Report: kanaryv1alpha1.KanaryDeploymentStatusReport{},
 				},
 			},
 			want: &kanaryv1alpha1.KanaryDeploymentStatus{
 				Report: kanaryv1alpha1.KanaryDeploymentStatusReport{
-					Status:     "Running",
+					Status:     string(kanaryv1alpha1.RunningKanaryDeploymentConditionType),
 					Scale:      "static",
 					Validation: "promQL",
 				},
@@ -189,12 +206,26 @@ func Test_updateStatusWithReport(t *testing.T) {
 					},
 				},
 				status: &kanaryv1alpha1.KanaryDeploymentStatus{
+					Conditions: []kanaryv1alpha1.KanaryDeploymentCondition{
+						kanaryv1alpha1.KanaryDeploymentCondition{
+							Status: corev1.ConditionTrue,
+							Type:   kanaryv1alpha1.ScheduledKanaryDeploymentConditionType,
+						},
+						kanaryv1alpha1.KanaryDeploymentCondition{
+							Status: corev1.ConditionTrue,
+							Type:   kanaryv1alpha1.RunningKanaryDeploymentConditionType,
+						},
+						kanaryv1alpha1.KanaryDeploymentCondition{
+							Status: corev1.ConditionTrue,
+							Type:   kanaryv1alpha1.FailedKanaryDeploymentConditionType,
+						},
+					},
 					Report: kanaryv1alpha1.KanaryDeploymentStatusReport{},
 				},
 			},
 			want: &kanaryv1alpha1.KanaryDeploymentStatus{
 				Report: kanaryv1alpha1.KanaryDeploymentStatusReport{
-					Status:     "Running",
+					Status:     string(kanaryv1alpha1.FailedKanaryDeploymentConditionType),
 					Scale:      "static",
 					Validation: "labelWatch",
 				},
@@ -216,12 +247,26 @@ func Test_updateStatusWithReport(t *testing.T) {
 					},
 				},
 				status: &kanaryv1alpha1.KanaryDeploymentStatus{
+					Conditions: []kanaryv1alpha1.KanaryDeploymentCondition{
+						kanaryv1alpha1.KanaryDeploymentCondition{
+							Status: corev1.ConditionTrue,
+							Type:   kanaryv1alpha1.ScheduledKanaryDeploymentConditionType,
+						},
+						kanaryv1alpha1.KanaryDeploymentCondition{
+							Status: corev1.ConditionTrue,
+							Type:   kanaryv1alpha1.RunningKanaryDeploymentConditionType,
+						},
+						kanaryv1alpha1.KanaryDeploymentCondition{
+							Status: corev1.ConditionTrue,
+							Type:   kanaryv1alpha1.SucceededKanaryDeploymentConditionType,
+						},
+					},
 					Report: kanaryv1alpha1.KanaryDeploymentStatusReport{},
 				},
 			},
 			want: &kanaryv1alpha1.KanaryDeploymentStatus{
 				Report: kanaryv1alpha1.KanaryDeploymentStatusReport{
-					Status:     "Running",
+					Status:     string(kanaryv1alpha1.SucceededKanaryDeploymentConditionType),
 					Scale:      "static",
 					Validation: "manual",
 				},
@@ -230,7 +275,7 @@ func Test_updateStatusWithReport(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if updateStatusReport(tt.args.kd, tt.args.status); !reflect.DeepEqual(tt.args.status, tt.want) {
+			if updateStatusReport(tt.args.kd, tt.args.status); !reflect.DeepEqual(tt.args.status.Report, tt.want.Report) {
 				t.Errorf("updateStatusWithReport() = %v, want %v", tt.args.status, tt.want)
 			}
 		})

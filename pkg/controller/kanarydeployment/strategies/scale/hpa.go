@@ -75,7 +75,7 @@ func (h *hpaImpl) Scale(kclient client.Client, reqLogger logr.Logger, kd *kanary
 func (h *hpaImpl) Clear(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, canaryDep *appsv1beta1.Deployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error) {
 	status := &kd.Status
 
-	// check if the HPA is already created, if not create it.
+	// check if the HPA is defined.
 	hpa := &v2beta1.HorizontalPodAutoscaler{}
 	objKey := types.NamespacedName{Name: utils.GetCanaryDeploymentName(kd), Namespace: kd.Namespace}
 	err := kclient.Get(context.TODO(), objKey, hpa)

@@ -120,7 +120,7 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 					reqLogger.Error(err, "failed to create new CanaryService", "Namespace", kanaryService.Namespace, "Service.Name", kanaryService.Name)
 					return status, true, reconcile.Result{}, err
 				}
-				utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.TrafficKanaryDeploymentConditionType, corev1.ConditionTrue, "Traffic source: "+string(k.conf.Source))
+				utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.TrafficKanaryDeploymentConditionType, corev1.ConditionTrue, "Traffic source: "+string(k.conf.Source), false)
 				// Service created successfully - return and requeue
 				return status, true, reconcile.Result{Requeue: true}, nil
 			} else if err != nil {
@@ -145,7 +145,7 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 						reqLogger.Error(err, "unable to update the kanary service")
 						return status, true, reconcile.Result{}, err
 					}
-					utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.TrafficKanaryDeploymentConditionType, corev1.ConditionTrue, "Traffic source: "+string(k.conf.Source))
+					utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.TrafficKanaryDeploymentConditionType, corev1.ConditionTrue, "Traffic source: "+string(k.conf.Source), false)
 					// Service updated successfully - return and requeue
 					return status, true, reconcile.Result{Requeue: true}, nil
 				}
@@ -164,7 +164,7 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 				}
 
 				needsReturn, result, err = k.desactivateService(kclient, reqLogger, kd, service)
-				utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.TrafficKanaryDeploymentConditionType, corev1.ConditionFalse, "Traffic source: "+string(k.conf.Source))
+				utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.TrafficKanaryDeploymentConditionType, corev1.ConditionFalse, "Traffic source: "+string(k.conf.Source), false)
 				if needsReturn {
 					result.Requeue = true
 					return status, needsReturn, result, err
@@ -174,7 +174,7 @@ func (k *kanaryServiceImpl) manageServices(kclient client.Client, reqLogger logr
 				if needsReturn {
 					result.Requeue = true
 				}
-				utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.TrafficKanaryDeploymentConditionType, corev1.ConditionTrue, "Traffic source: "+string(k.conf.Source))
+				utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.TrafficKanaryDeploymentConditionType, corev1.ConditionTrue, "Traffic source: "+string(k.conf.Source), false)
 			}
 		}
 	}

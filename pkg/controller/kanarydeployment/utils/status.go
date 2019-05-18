@@ -20,7 +20,13 @@ import (
 )
 
 // UpdateKanaryDeploymentStatus used to update the KanaryDeployment.Status if it has changed.
-func UpdateKanaryDeploymentStatus(kclient client.StatusWriter, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, newStatus *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) (reconcile.Result, error) {
+func UpdateKanaryDeploymentStatus(kclient client.Client, subResourceDisabled bool, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, newStatus *kanaryv1alpha1.KanaryDeploymentStatus, result reconcile.Result, err error) (reconcile.Result, error) {
+
+	var kclientStatus client.StatusWriter = kclient
+	if !subResourceDisabled { //Updating StatusSubresource may depends on Kubernetes version! https://book.kubebuilder.io/basics/status_subresource.html
+		kclientStatus = kclient.Status()
+	}
+
 	//No need to go further if the same pointer is given
 	if &kd.Status == newStatus {
 		return result, err
@@ -30,7 +36,7 @@ func UpdateKanaryDeploymentStatus(kclient client.StatusWriter, reqLogger logr.Lo
 	if !apiequality.Semantic.DeepEqual(&kd.Status, newStatus) {
 		updatedKd := kd.DeepCopy()
 		updatedKd.Status = *newStatus
-		err2 := kclient.Update(context.TODO(), updatedKd)
+		err2 := kclientStatus.Update(context.TODO(), updatedKd)
 		if err2 != nil {
 			reqLogger.Error(err2, "failed to update KanaryDeployment status", "KanaryDeployment.Namespace", updatedKd.Namespace, "KanaryDeployment.Name", updatedKd.Name)
 			return reconcile.Result{}, err2
@@ -42,14 +48,14 @@ func UpdateKanaryDeploymentStatus(kclient client.StatusWriter, reqLogger logr.Lo
 // UpdateKanaryDeploymentStatusConditionsFailure used to update the failre StatusConditions
 func UpdateKanaryDeploymentStatusConditionsFailure(status *kanaryv1alpha1.KanaryDeploymentStatus, now metav1.Time, err error) {
 	if err != nil {
-		UpdateKanaryDeploymentStatusCondition(status, now, kanaryv1alpha1.ErroredKanaryDeploymentConditionType, corev1.ConditionTrue, fmt.Sprintf("%v", err))
+		UpdateKanaryDeploymentStatusCondition(status, now, kanaryv1alpha1.ErroredKanaryDeploymentConditionType, corev1.ConditionTrue, fmt.Sprintf("%v", err), false)
 	} else {
-		UpdateKanaryDeploymentStatusCondition(status, now, kanaryv1alpha1.ErroredKanaryDeploymentConditionType, corev1.ConditionFalse, "")
+		UpdateKanaryDeploymentStatusCondition(status, now, kanaryv1alpha1.ErroredKanaryDeploymentConditionType, corev1.ConditionFalse, "", false)
 	}
 }
 
 // UpdateKanaryDeploymentStatusCondition used to update a specific KanaryDeploymentConditionType
-func UpdateKanaryDeploymentStatusCondition(status *kanaryv1alpha1.KanaryDeploymentStatus, now metav1.Time, t kanaryv1alpha1.KanaryDeploymentConditionType, conditionStatus corev1.ConditionStatus, desc string) {
+func UpdateKanaryDeploymentStatusCondition(status *kanaryv1alpha1.KanaryDeploymentStatus, now metav1.Time, t kanaryv1alpha1.KanaryDeploymentConditionType, conditionStatus corev1.ConditionStatus, desc string, writeFalseIfNotExist bool) {
 	idConditionComplete := getIndexForConditionType(status, t)
 	if idConditionComplete >= 0 {
 		if status.Conditions[idConditionComplete].Status != conditionStatus {
@@ -58,17 +64,17 @@ func UpdateKanaryDeploymentStatusCondition(status *kanaryv1alpha1.KanaryDeployme
 		}
 		status.Conditions[idConditionComplete].LastUpdateTime = now
 		status.Conditions[idConditionComplete].Message = desc
-	} else if conditionStatus == corev1.ConditionTrue {
+	} else if conditionStatus == corev1.ConditionTrue || writeFalseIfNotExist {
 		// Only add if the condition is True
-		status.Conditions = append(status.Conditions, NewKanaryDeploymentStatusCondition(t, now, "", desc))
+		status.Conditions = append(status.Conditions, NewKanaryDeploymentStatusCondition(t, conditionStatus, now, "", desc))
 	}
 }
 
 // NewKanaryDeploymentStatusCondition returns new KanaryDeploymentCondition instance
-func NewKanaryDeploymentStatusCondition(conditionType kanaryv1alpha1.KanaryDeploymentConditionType, now metav1.Time, reason, message string) kanaryv1alpha1.KanaryDeploymentCondition {
+func NewKanaryDeploymentStatusCondition(conditionType kanaryv1alpha1.KanaryDeploymentConditionType, conditionStatus corev1.ConditionStatus, now metav1.Time, reason, message string) kanaryv1alpha1.KanaryDeploymentCondition {
 	return kanaryv1alpha1.KanaryDeploymentCondition{
 		Type:               conditionType,
-		Status:             corev1.ConditionTrue,
+		Status:             conditionStatus,
 		LastUpdateTime:     now,
 		LastTransitionTime: now,
 		Reason:             reason,
@@ -112,6 +118,18 @@ func IsKanaryDeploymentSucceeded(status *kanaryv1alpha1.KanaryDeploymentStatus) 
 	return false
 }
 
+// IsKanaryDeploymentScheduled returns true if the KanaryDeployment is scheduled, else return false
+func IsKanaryDeploymentScheduled(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
+	if status == nil {
+		return false
+	}
+	id := getIndexForConditionType(status, kanaryv1alpha1.ScheduledKanaryDeploymentConditionType)
+	if id >= 0 && status.Conditions[id].Status == corev1.ConditionTrue {
+		return true
+	}
+	return false
+}
+
 // IsKanaryDeploymentDeploymentUpdated returns true if the KanaryDeployment has lead to deployment update
 func IsKanaryDeploymentDeploymentUpdated(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
 	if status == nil {
@@ -124,9 +142,21 @@ func IsKanaryDeploymentDeploymentUpdated(status *kanaryv1alpha1.KanaryDeployment
 	return false
 }
 
-// IsKanaryDeploymentRunning returns true if the KanaryDeployment is runnning
-func IsKanaryDeploymentRunning(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
-	return !IsKanaryDeploymentFailed(status) && !IsKanaryDeploymentSucceeded(status) && !IsKanaryDeploymentDeploymentUpdated(status)
+// IsKanaryDeploymentValidationRunning returns true if the KanaryDeployment is runnning
+func IsKanaryDeploymentValidationRunning(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
+	if status == nil {
+		return false
+	}
+	id := getIndexForConditionType(status, kanaryv1alpha1.RunningKanaryDeploymentConditionType)
+	if id >= 0 && status.Conditions[id].Status == corev1.ConditionTrue {
+		return true
+	}
+	return false
+}
+
+// IsKanaryDeploymentValidationCompleted returns true if the KanaryDeployment is runnning
+func IsKanaryDeploymentValidationCompleted(status *kanaryv1alpha1.KanaryDeploymentStatus) bool {
+	return IsKanaryDeploymentFailed(status) || IsKanaryDeploymentSucceeded(status) || IsKanaryDeploymentDeploymentUpdated(status)
 }
 
 func getIndexForConditionType(status *kanaryv1alpha1.KanaryDeploymentStatus, t kanaryv1alpha1.KanaryDeploymentConditionType) int {
@@ -158,7 +188,20 @@ func getReportStatus(status *kanaryv1alpha1.KanaryDeploymentStatus) string {
 	if IsKanaryDeploymentSucceeded(status) {
 		return string(v1alpha1.SucceededKanaryDeploymentConditionType)
 	}
-	return string(v1alpha1.RunningKanaryDeploymentConditionType)
+
+	if IsKanaryDeploymentValidationRunning(status) {
+		return string(v1alpha1.RunningKanaryDeploymentConditionType)
+	}
+
+	if IsKanaryDeploymentScheduled(status) {
+		return string(v1alpha1.ScheduledKanaryDeploymentConditionType)
+	}
+
+	if IsKanaryDeploymentErrored(status) {
+		return string(v1alpha1.ErroredKanaryDeploymentConditionType)
+	}
+
+	return "-"
 }
 
 func getValidation(kd *kanaryv1alpha1.KanaryDeployment) string {

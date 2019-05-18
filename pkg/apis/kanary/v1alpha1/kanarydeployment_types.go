@@ -53,6 +53,8 @@ type KanaryDeploymentSpec struct {
 	Traffic KanaryDeploymentSpecTraffic `json:"traffic,omitempty"`
 	// Validations is the scaling configuration for the canary deployment
 	Validations KanaryDeploymentSpecValidationList `json:"validations,omitempty"`
+	// Schedule helps you to define when that canary deployment should start. RFC3339 = "2006-01-02T15:04:05Z07:00" "2006-01-02T15:04:05Z"
+	Schedule string `json:"schedule,omiempty"`
 }
 
 // KanaryDeploymentSpecScale defines the scale configuration for the canary deployment
@@ -275,6 +277,8 @@ type KanaryDeploymentConditionType string
 
 // These are valid conditions of a kanarydeployment.
 const (
+	// Activated means the KanaryDeployment strategy is activated
+	ScheduledKanaryDeploymentConditionType KanaryDeploymentConditionType = "Scheduled"
 	// Activated means the KanaryDeployment strategy is activated
 	ActivatedKanaryDeploymentConditionType KanaryDeploymentConditionType = "Activated"
 	// Succeeded means the KanaryDeployment strategy succeed,
