@@ -38,6 +38,9 @@ simple-server:
 	 kind load docker-image kanary/simpleserver:latest
     endif
 
+reverse-proxy:
+	CGO_ENABLED=0 go build -i -installsuffix cgo -ldflags '-w' -o ./bin/reverse-proxy ./test/reverse-proxy/main.go
+
 push: container
 	docker push $(PREFIX):$(TAG)
 
@@ -54,4 +57,4 @@ install-tools:
 	./hack/golangci-lint.sh -b ${GOPATH}/bin v1.16.0
 	./hack/install-operator-sdk.sh
 
-.PHONY: build push clean test e2e validate install-tools
+.PHONY: build push clean test e2e validate install-tools simple-server reverse-proxy
