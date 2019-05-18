@@ -6,6 +6,8 @@
 # 3- install istio              --> ./hack/install-istio.sh
 # 4- build the operator         --> make build && make TAG=latest KINDPUSH=true container
 # 5- build the simple-server    --> make KINDPUSH=true simple-server
+# 6- build the reverse-proxy    --> make reverse-proxy
+# 7- start reverse-proxy for grafana --> ./bin/reverse-proxy -svc grafana.example.com -port 8080
 
 DEMO_DIR="$(cd "$(dirname "${0}")" && pwd)"
 CURRENT=$PWD
