@@ -4,6 +4,7 @@ set -e
 [ -z "$COVER" ] && COVER=.cover
 profile="$COVER/cover.out"
 mode=atomic
+exit_code=0
 
 OS=$(uname)
 race_flag="-race"
@@ -38,6 +39,11 @@ generate_cover_data() {
     f="${COVER}/$(echo $pkg | tr / -).cover"
     tout="${COVER}/$(echo $pkg | tr / -)_tests.out"
     go test $verbose $race_flag -covermode="$mode" -coverprofile="$f" "$pkg" | tee "$tout"
+    for status in $PIPESTATUS; do
+      if [ "$status" != "0" ]; then
+        exit_code=1
+      fi
+    done
   done
 
   echo "mode: $mode" >"$profile"
@@ -50,3 +56,4 @@ generate_cover_report() {
 
 generate_cover_data 
 generate_cover_report html
+exit $exit_code
