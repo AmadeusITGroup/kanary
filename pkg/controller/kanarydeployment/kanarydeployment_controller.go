@@ -2,6 +2,7 @@ package kanarydeployment
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -23,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	kanaryv1alpha1 "github.com/amadeusitgroup/kanary/pkg/apis/kanary/v1alpha1"
+	"github.com/amadeusitgroup/kanary/pkg/config"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/strategies"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils"
 	"github.com/amadeusitgroup/kanary/pkg/controller/kanarydeployment/utils/comparison"
@@ -76,6 +78,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 }
 
 var _ reconcile.Reconciler = &ReconcileKanaryDeployment{}
+var subResourceDisabled = os.Getenv(config.KanaryStatusSubresourceDisabledEnvVar) == "1"
 
 // ReconcileKanaryDeployment reconciles a KanaryDeployment object
 type ReconcileKanaryDeployment struct {
@@ -126,6 +129,12 @@ func (r *ReconcileKanaryDeployment) Reconcile(request reconcile.Request) (reconc
 		return updateKanaryDeploymentStatus(r.client, reqLogger, instance, metav1.Now(), result, err)
 	}
 
+	//Check scheduling
+	reqLogger.Info("Scheduling")
+	if newstatus, schedResult := strategies.ApplyScheduling(reqLogger, instance); newstatus != nil || schedResult != nil {
+		return utils.UpdateKanaryDeploymentStatus(r.client, subResourceDisabled, reqLogger, instance, newstatus, *schedResult, nil)
+	}
+
 	var canarydeployment *appsv1beta1.Deployment
 	canarydeployment, needsReturn, result, err = r.manageCanaryDeploymentCreation(reqLogger, instance, utils.GetCanaryDeploymentName(instance))
 	if needsReturn {
@@ -170,9 +179,9 @@ func (r *ReconcileKanaryDeployment) manageCanaryDeploymentCreation(reqLogger log
 		}
 		newStatus := kd.Status.DeepCopy()
 		newStatus.CurrentHash = currentHash
-		utils.UpdateKanaryDeploymentStatusCondition(newStatus, metav1.Now(), kanaryv1alpha1.ActivatedKanaryDeploymentConditionType, corev1.ConditionTrue, "")
+		utils.UpdateKanaryDeploymentStatusCondition(newStatus, metav1.Now(), kanaryv1alpha1.ActivatedKanaryDeploymentConditionType, corev1.ConditionTrue, "", false)
 		result.Requeue = true
-		result, err = utils.UpdateKanaryDeploymentStatus(r.client, reqLogger, kd, newStatus, result, err)
+		result, err = utils.UpdateKanaryDeploymentStatus(r.client, subResourceDisabled, reqLogger, kd, newStatus, result, err)
 		// Deployment created successfully - return and requeue
 		return deployment, true, result, err
 	} else if err != nil {
@@ -217,8 +226,8 @@ func (r *ReconcileKanaryDeployment) manageDeploymentCreationFunc(reqLogger logr.
 	return deployment, false, reconcile.Result{}, err
 }
 
-func updateKanaryDeploymentStatus(kclient client.StatusWriter, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, now metav1.Time, result reconcile.Result, err error) (reconcile.Result, error) {
+func updateKanaryDeploymentStatus(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, now metav1.Time, result reconcile.Result, err error) (reconcile.Result, error) {
 	newStatus := kd.Status.DeepCopy()
 	utils.UpdateKanaryDeploymentStatusConditionsFailure(newStatus, now, err)
-	return utils.UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err)
+	return utils.UpdateKanaryDeploymentStatus(kclient, subResourceDisabled, reqLogger, kd, newStatus, result, err)
 }

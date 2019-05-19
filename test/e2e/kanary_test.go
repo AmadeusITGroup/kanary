@@ -64,6 +64,7 @@ func TestKanary(t *testing.T) {
 		t.Run("Manual-Invalidation", ManualInvalidationAfterDeadline)
 		t.Run("DepLabelWatch-Invalid", InvalidationWithDeploymentLabels)
 		t.Run("HPAcreation", HPAcreation)
+		t.Run("Schedule30s", ScheduledKanaryDeploymentIn30s)
 	})
 }
 

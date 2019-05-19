@@ -119,7 +119,16 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			fields: fields{
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
-					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, nil),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{
+						Status: &kanaryv1alpha1.KanaryDeploymentStatus{
+							Conditions: []kanaryv1alpha1.KanaryDeploymentCondition{
+								kanaryv1alpha1.KanaryDeploymentCondition{
+									Status: corev1.ConditionTrue,
+									Type:   kanaryv1alpha1.ScheduledKanaryDeploymentConditionType,
+								},
+							},
+						},
+					}),
 					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 				}...),
 			},
@@ -145,7 +154,6 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 				return nil
 			},
 		},
-
 		{
 			name: "[INIT] service is not defined",
 
@@ -158,13 +166,22 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			fields: fields{
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
-					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, nil),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, "", defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{
+						Status: &kanaryv1alpha1.KanaryDeploymentStatus{
+							Conditions: []kanaryv1alpha1.KanaryDeploymentCondition{
+								kanaryv1alpha1.KanaryDeploymentCondition{
+									Status: corev1.ConditionTrue,
+									Type:   kanaryv1alpha1.ScheduledKanaryDeploymentConditionType,
+								},
+							},
+						},
+					}),
 					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 					utilstest.NewDeployment(name+"-kanary-"+name, namespace, 1, nil),
 				}...),
 			},
 			want: reconcile.Result{
-				Requeue: false,
+				Requeue: true,
 			},
 			wantFunc: func(r *ReconcileKanaryDeployment) error {
 				service := &corev1.Service{}
@@ -175,7 +192,6 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 				return err
 			},
 		},
-
 		{
 			name: "[INIT] service is define but dont exist",
 
@@ -188,7 +204,16 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			fields: fields{
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
-					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic,
+						Status: &kanaryv1alpha1.KanaryDeploymentStatus{
+							Conditions: []kanaryv1alpha1.KanaryDeploymentCondition{
+								kanaryv1alpha1.KanaryDeploymentCondition{
+									Status: corev1.ConditionTrue,
+									Type:   kanaryv1alpha1.ScheduledKanaryDeploymentConditionType,
+								},
+							},
+						},
+					}),
 					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 					utilstest.NewDeployment(name+"-kanary-"+name, namespace, 1, nil),
 				}...),
@@ -220,7 +245,16 @@ func TestReconcileKanaryDeployment_Reconcile(t *testing.T) {
 			fields: fields{
 				scheme: s,
 				client: fake.NewFakeClient([]runtime.Object{
-					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic}),
+					kanaryv1alpha1test.NewKanaryDeployment(name, namespace, serviceName, defaultReplicas, &kanaryv1alpha1test.NewKanaryDeploymentOptions{Traffic: kanaryServiceTraffic,
+						Status: &kanaryv1alpha1.KanaryDeploymentStatus{
+							Conditions: []kanaryv1alpha1.KanaryDeploymentCondition{
+								kanaryv1alpha1.KanaryDeploymentCondition{
+									Status: corev1.ConditionTrue,
+									Type:   kanaryv1alpha1.ScheduledKanaryDeploymentConditionType,
+								},
+							},
+						},
+					}),
 					utilstest.NewDeployment(name, namespace, defaultReplicas, nil),
 					utilstest.NewDeployment(name+"-kanary-"+name, namespace, 1, nil),
 					utilstest.NewService(serviceName, namespace, nil, nil),

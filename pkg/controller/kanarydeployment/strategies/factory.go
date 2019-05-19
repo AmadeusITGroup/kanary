@@ -89,12 +89,7 @@ func (s *strategy) Apply(kclient client.Client, reqLogger logr.Logger, kd *kanar
 	var newStatus *kanaryv1alpha1.KanaryDeploymentStatus
 	newStatus, result, err = s.process(kclient, reqLogger, kd, dep, canarydep)
 	utils.UpdateKanaryDeploymentStatusConditionsFailure(newStatus, metav1.Now(), err)
-	if s.subResourceDisabled {
-		//use plain resource
-		return utils.UpdateKanaryDeploymentStatus(kclient, reqLogger, kd, newStatus, result, err) //Try with plain resource
-	}
-	//use subresource
-	return utils.UpdateKanaryDeploymentStatus(kclient.Status(), reqLogger, kd, newStatus, result, err) //Updating StatusSubresource may depends on Kubernetes version! https://book.kubebuilder.io/basics/status_subresource.html
+	return utils.UpdateKanaryDeploymentStatus(kclient, s.subResourceDisabled, reqLogger, kd, newStatus, result, err) //Try with plain resource
 }
 
 func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kanaryv1alpha1.KanaryDeployment, dep, canarydep *appsv1beta1.Deployment) (*kanaryv1alpha1.KanaryDeploymentStatus, reconcile.Result, error) {
@@ -163,8 +158,16 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 	}
 
 	//In ase we are still running let's run the validation
-	if utils.IsKanaryDeploymentRunning(&kd.Status) {
+	if !utils.IsKanaryDeploymentValidationCompleted(&kd.Status) {
 		reqLogger.Info("Check Validation")
+
+		if !utils.IsKanaryDeploymentValidationRunning(&kd.Status) {
+			status := kd.Status.DeepCopy()
+			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.RunningKanaryDeploymentConditionType, corev1.ConditionTrue, "Validation Started", false)
+			reqLogger.Info("Validation Started")
+			return status, reconcile.Result{Requeue: true}, nil
+		}
+
 		validationDeadlineDone := validation.IsDeadlinePeriodDone(kd)
 
 		//Run validation for all strategies
@@ -190,7 +193,8 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		// If any strategy fails, the kanary should fail
 		if failed {
 			status := kd.Status.DeepCopy()
-			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, fmt.Sprintf("KanaryDeployment failed, %s", failMessages))
+			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.FailedKanaryDeploymentConditionType, corev1.ConditionTrue, fmt.Sprintf("KanaryDeployment failed, %s", failMessages), false)
+			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.RunningKanaryDeploymentConditionType, corev1.ConditionFalse, "Validation ended with failure detected", false)
 			reqLogger.Info("Check Validation", "in failed", failMessages, "updated status", fmt.Sprintf("%#v", status))
 			return status, reconcile.Result{Requeue: true}, nil
 		}
@@ -198,7 +202,8 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 		// So there is no failure, does someone force for an early Success ?
 		if forceSucceededNow {
 			status := kd.Status.DeepCopy()
-			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
+			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Forced Success", false)
+			utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.RunningKanaryDeploymentConditionType, corev1.ConditionFalse, "Validation ended with success forced", false)
 			return status, reconcile.Result{Requeue: true}, nil
 		}
 
@@ -219,7 +224,8 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 
 		//Looks like it is a success for the kanary!
 		status := kd.Status.DeepCopy()
-		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
+		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.SucceededKanaryDeploymentConditionType, corev1.ConditionTrue, "Validation ended with success", false)
+		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.RunningKanaryDeploymentConditionType, corev1.ConditionFalse, "Validation ended with success", false)
 		return status, reconcile.Result{Requeue: true}, nil
 	}
 
@@ -241,7 +247,7 @@ func (s *strategy) process(kclient client.Client, reqLogger logr.Logger, kd *kan
 			return &kd.Status, reconcile.Result{}, err
 		}
 		status := kd.Status.DeepCopy()
-		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.DeploymentUpdatedKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully")
+		utils.UpdateKanaryDeploymentStatusCondition(status, metav1.Now(), kanaryv1alpha1.DeploymentUpdatedKanaryDeploymentConditionType, corev1.ConditionTrue, "Deployment updated successfully", false)
 		return status, reconcile.Result{Requeue: true}, nil
 	}
 	return &kd.Status, reconcile.Result{}, nil

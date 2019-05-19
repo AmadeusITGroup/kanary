@@ -95,7 +95,7 @@ injection &
 injectionPID=$!
 
 desc "Open Grafana Istio Dashboard" 
-run "# http://127.0.0.1:$LOCAL80  + Host modification plugin to match grafana.example.com"
+DEMO_AUTO_RUN=1 run "# http://127.0.0.1:$LOCAL80  + Host modification plugin to match grafana.example.com"
 
 desc "Create a kanary with traffic=both and new version with response time degradation"
 desc "Let's look at the command, using kubectl plugin"
@@ -108,7 +108,7 @@ DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=batman --traffic=both 
 desc "Monitoring the kanary..."
 wait_for_kanary batman
 
-desc "All object are still there for investigation!!!"
+desc "The Kanary failed, but all objects are still there for investigation!!!"
 run "kubectl get all"
 
 desc "Let's remove the kanary"
@@ -131,8 +131,8 @@ DEMO_AUTO_RUN=1 run "kubectl delete kanary hulk"
 
 desc "What about doing multiple (3) kanaries at the same time?"
 DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=thor --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --validation-promql-istio-success=\"0.95\" --dry-run | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=10:100,50:50,100:10\"' | kubectl apply -f -"
-DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=superman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --validation-promql-istio-success=\"0.95\" --dry-run | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=30:500,100:80\"' | kubectl apply -f -"
-DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=wonderwoman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --validation-promql-istio-success=\"0.95\" --dry-run | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseCode=30:500,100:200\"' | kubectl apply -f -"
+DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=superman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --validation-promql-istio-success=\"0.95\" --dry-run | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseTime=10:450,100:80\"' | kubectl apply -f -"
+DEMO_AUTO_RUN=1 run "kubectl kanary generate myapp --name=wonderwoman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile=\"P99<310\" --validation-promql-istio-success=\"0.95\" --dry-run | jq '(.spec.template.spec.template.spec.containers[0].args[0]) |= \"--responseCode=10:500\"' | kubectl apply -f -"
 
 desc "Monitoring the kanaries"
 wait_for_kanary thor --getAll
