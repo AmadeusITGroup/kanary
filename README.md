@@ -13,28 +13,34 @@ Kanary
 
 The goal of Kanary project is to bring full automation of Canary Deployment to kubernetes. So far only rolling update is automated and fully integrated to Kubernetes.  Using CRD (Custom Resource Definition) and an associated controller, this project will allow you to define your Canary deployment and chain it with a classic rolling update in case of success.
 
-The Kanary CRD allows you to define the 3 main blocks of a Canary Deployment:
+The Kanary CRD allows you to define the follwoing 5 blocks of a Canary Deployment:
 
+- The scheduling
 - The deployment of the canary instance
 - The traffic management toward your canary instance
 - The validation phase
+- The rollout phase
 
 Of course the Kanary CRD embedded a classic deployment object defintion as template. A dedicated pluggin will allow you to convert a classic deployment to a Kanary deployment using default values.
 
 No need for external tool to orchestrate the different phase, the creation and deletion of dedicated services and pods. Describe what you expect and let the controller do the job. Each phase comes with multiple options that will give full control on how you want to proceed.
 
-Note that it is possible to run multiple Kanary on top of the same deployment, and that the history of the original deployment is preserved (classic roolback capability is preserved).
+Note that it is possible to run multiple Kanary at the same time on top of the same deployment, and that the history of the original deployment is preserved (classic roolback capability is preserved).
 
 The next chapters will detail all possible options. Have a good Kanary testing!
 
 ## How to use it
 
-The `KanaryDeployment.Spec` is split in 4 different part:
+The `KanaryDeployment.Spec` is split in 4 different parts:
 
 - `KanaryDeployment.Spec.Template`: represents the `Deployment` template that is it instantiated as canary deployment, and also as the Deployment update if the KanaryDeployment succeed.
 - `KanaryDeployment.Spec.Scale`: aggregates the scaling configuration for the canary deployment.
 - `KanaryDeployment.Spec.Traffic`: aggregates the traffic configuration that targets the canary deployment pod(s). it can be live traffic (behind the same service that the deployment pods), behind a specific "kanary" service, or receiving some "mirror" traffic.
 - `KanaryDeployment.Spec.Validation`: this section aggregates the kanaryDeployment validation configuration.
+
+You can optionally define a scheduling:
+
+- `KanaryDeployment.Spec.Schedule`: If you don't want to run your canary test campaign rigth after the creation of the CRD, you can put here the date and time for the scheduling. Format is RFC3339, "2020-04-12T20:42:00Z"
 
 ### Scale configuration
 
@@ -122,6 +128,15 @@ spec:
   # ...
 ```
 
+##### Validate the KanaryDeployment with the manual mode
+
+When you consider the canary deployment as enough tested you can update the `spec.validation.manual.status` to `valid`or `invalid`.
+
+- If you have chosen `valid`, automatically the kanary-controller will trigger the deployment update with the same template used to create the canary-deployment.
+- If you have chosen `invalid`. the KanaryDeployment status will be set as `Failed`, no additional action will be possible. Also, the canary pods will be removed from the "production" service.
+
+Finally when you delete the KanaryDeployment instance, all the other resources created linked to it, will be also deleted.
+
 #### LabelWatch
 
 The `labelWatch` validation strategy allows to configure some invalidation labels on Kanary pods or deployment. If present, the Kanary controller will consider the `KanaryDeployment` as failed.
@@ -155,7 +170,28 @@ spec:
 
 #### PromQL
 
-// TODO
+If you use a prometheus query, this one should return a float numeric value that will be checked against a range that you define [min,max]. Any value out of that range will invalidate the on going Kanary.
+
+```yaml
+spec:
+  # ...
+  validations:
+      initialDelay: 20s
+      items:
+      - promQL:
+          allPodsQuery: true
+          podNamekey: pod
+          prometheusService: prometheus.istio-system:9090
+          query: histogram_quantile(0.99, sum(rate(istio_request_duration_seconds_bucket{reporter="destination",destination_workload="myapp-kanary-batman"}[1m]))
+            by (le))
+          valueInRange:
+            max: 0.31
+            min: 0
+      maxIntervalPeriod: 10s
+      validationPeriod: 1m0s
+  # ...
+
+```
 
 ### Basic example
 
@@ -188,15 +224,6 @@ This artifact will trigger the creation of a new deployment: `canary` Deployment
 
 Also, a Service will be created in order to target only the Canary pods managed by the `canary` Deployment. This service is created only if the `KanaryDeployment.spec.serviceName` is defined.
 
-#### Validate the KanaryDeployment with the manual mode
-
-When you consider the canary deployment enough tested you can update the `spec.validation.manual.status` to `valid`or `invalid`.
-
-- If you have chosen `valid`, automatically the kanary-controller will trigger the deployment update with the same template used to create the canary-deployment.
-- If you have chosen `invalid`. the KanaryDeployment status will be set as `Failed`, no additional action will be possible. Also, the canary pods will be removed from the "production" service.
-
-Finally when you delete the KanaryDeployment instance, all the other resources created linked to it, will be also deleted.
-
 ## Kubectl kanary plugin
 
 ```shell
@@ -211,6 +238,45 @@ Available Commands:
   generate    generate a KanaryDeployment artifact from a Deployment
   get         get kanary deployment(s)
   help        Help about any command
+```
+
+For istio users, example to generate a validation against response time P99:
+```
+kubectl kanary generate myapp --name=batman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile="P99<310" --output=yaml
+```
+
+Same against success rate and response time, and just do a dry-run (no deployment in case of success):
+```
+kubectl kanary generate myapp --name=superman --traffic=both --service=myapp-svc --validation-period=1m --validation-promql-istio-quantile="P99<310" --validation-promql-istio-success="0.95" --dry-run
+```
+
+## Monitoring your kanary
+
+```shell
+> kubectl get kanary -w
+ NAMESPACE           NAME    STATUS     DEPLOYMENT  SERVICE    SCALE   TRAFFIC  VALIDATION  DURATION             
+ prom-istio-example  batman  Scheduled  myapp       myapp-svc  static  both     promQL      19.083109926s/1m20s  
+
+ NAMESPACE           NAME    STATUS     DEPLOYMENT  SERVICE    SCALE   TRAFFIC  VALIDATION  DURATION             
+ prom-istio-example  batman  Running    myapp       myapp-svc  static  both     promQL      20.074509245s/1m20s  
+
+ NAMESPACE           NAME    STATUS     DEPLOYMENT  SERVICE    SCALE   TRAFFIC  VALIDATION  DURATION             
+ prom-istio-example  batman  Succeeded  myapp       myapp-svc  static  both     promQL      20.081225468s/1m20s  
+
+ NAMESPACE           NAME    STATUS             DEPLOYMENT  SERVICE    SCALE   TRAFFIC  VALIDATION  DURATION             
+ prom-istio-example  batman  DeploymentUpdated  myapp       myapp-svc  static  both     promQL      20.084575695s/1m20s  
+
+```
+
+## Kanary Lifecycle
+
+```
+Creation ---> Scheduled ---> Running --|--> Failed
+                                      | 
+                                      |--> Succeeded ---> DeploymentUpdated
+                                               |
+                                               |
+                                           (dry-run)
 ```
 
 ## Kanary explains with Diagrams
