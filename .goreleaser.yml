@@ -20,7 +20,7 @@ builds:
   binary: kubectl-plugin
 dockers:
   - name: kanary
-    image: kanary/operator
+    image: kanaryoperator/operator
     dockerfile: build/Dockerfile
     goos: linux
     goarch: amd64

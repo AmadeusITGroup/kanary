@@ -8,7 +8,7 @@ serviceAccountName: kanary
 roleName: kanary
 
 image:
-  repository: kanary/operator
+  repository: kanaryoperator/operator
   tag: stable
   pullPolicy: IfNotPresent
 
