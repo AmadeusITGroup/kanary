@@ -9,7 +9,7 @@ roleName: kanary
 
 image:
   repository: kanaryoperator/operator
-  tag: stable
+  tag: latest
   pullPolicy: IfNotPresent
 
 nameOverride: ""
