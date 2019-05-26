@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: myapp
-        image: kanary/simpleserver:latest
+        image: kanaryoperator/simpleserver:latest
         imagePullPolicy: IfNotPresent
         args: ["--responseTime=5:100,50:40,100:20"]
         ports:

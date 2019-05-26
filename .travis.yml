@@ -32,7 +32,7 @@ jobs:
     - make test
     - make validate
     - make TAG=$TAG container
-    - kind load docker-image kanary/operator:$TAG
+    - kind load docker-image kanaryoperator/operator:$TAG
     - make SKIPBUILD=1 TAG=$TAG e2e
   - stage: release
     script:

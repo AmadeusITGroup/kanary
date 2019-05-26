@@ -8,8 +8,8 @@ serviceAccountName: kanary
 roleName: kanary
 
 image:
-  repository: kanary/operator
-  tag: stable
+  repository: kanaryoperator/operator
+  tag: latest
   pullPolicy: IfNotPresent
 
 nameOverride: ""

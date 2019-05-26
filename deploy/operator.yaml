@@ -17,7 +17,7 @@ spec:
       serviceAccountName: kanary
       containers:
         - name: kanary
-          image: kanary/operator:latest
+          image: kanaryoperator/operator:latest
           ports:
           - containerPort: 60000
             name: metrics

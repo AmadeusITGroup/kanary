@@ -77,7 +77,7 @@ Do whatever manual checks you need on this pod
 ```
 >kubectl get pods -o=custom-columns="NAME:.metadata.name,IMAGE:.spec.containers[0].image"
 NAME                                IMAGE
-kanary-fd5c94d74-v49f8              kanary/operator:v0.0.1
+kanary-fd5c94d74-v49f8              kanaryoperator/operator:v0.0.1
 nginx-dep-75bd58f5c7-gts2j          nginx:1.15.4
 nginx-dep-75bd58f5c7-m5fct          nginx:1.15.4
 nginx-dep-75bd58f5c7-n8pbh          nginx:1.15.4
@@ -136,7 +136,7 @@ Check status
 ```
 >get pods -o=custom-columns="NAME:.metadata.name,IMAGE:.spec.containers[0].image"
 NAME                         IMAGE
-kanary-fd5c94d74-v49f8       kanary/operator:v0.0.1
+kanary-fd5c94d74-v49f8       kanaryoperator/operator:v0.0.1
 nginx-dep-75bd58f5c7-ddwqn   nginx:1.15.4
 nginx-dep-75bd58f5c7-lf75x   nginx:1.15.4
 nginx-dep-75bd58f5c7-vmzlf   nginx:1.15.4

@@ -25,7 +25,7 @@ then
     make build
     make TAG=$TAG container
 fi
-kind load docker-image kanary/operator:$TAG
+kind load docker-image kanaryoperator/operator:$TAG
 
 #Laucnh proxy
 kubectl proxy --port=8001&
@@ -38,6 +38,6 @@ function killProxy {
 trap killProxy EXIT
 
 #run the test
-operator-sdk test local ./test/e2e --image kanary/operator:$TAG
+operator-sdk test local ./test/e2e --image kanaryoperator/operator:$TAG
 
 

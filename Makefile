@@ -3,7 +3,7 @@ ARTIFACT_PLUGIN=kubectl-kanary
 
 # 0.0 shouldn't clobber any released builds
 TAG= latest
-PREFIX =  kanary/${ARTIFACT}
+PREFIX =  kanaryoperator/${ARTIFACT}
 SOURCEDIR = "."
 
 SOURCES := $(shell find $(SOURCEDIR) ! -name "*_test.go" -name '*.go')
@@ -33,9 +33,9 @@ e2e:
 	./test/e2e/launch.sh
 
 simple-server:
-	docker build -t kanary/simpleserver:latest ./test/simple-server
+	docker build -t kanaryoperator/simpleserver:latest ./test/simple-server
     ifeq ($(KINDPUSH), true)
-	 kind load docker-image kanary/simpleserver:latest
+	 kind load docker-image kanaryoperator/simpleserver:latest
     endif
 
 reverse-proxy:
