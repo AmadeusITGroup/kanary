@@ -29,7 +29,55 @@ Note that it is possible to run multiple Kanary at the same time on top of the s
 
 The next chapters will detail all possible options. Have a good Kanary testing!
 
+## Install the kanary operator in your namespace
+
+### using Helm
+
+```
+helm template chart/kanary | kubectl apply -f -
+```
+
+### Injecting ressources
+
+Create the CRD first:
+```
+kubectl apply -f deploy/crds/kanary_v1alpha1_kanarydeployment_crd.yaml
+```
+
+Create ServiceAccount and setup RBAC:
+```
+kubectl apply -f deploy/service_account.yaml
+kubectl apply -f deploy/role.yaml
+kubectl apply -f deploy/role_binding.yaml
+```
+
+Deploy the operator:
+```
+kubectl apply -f deploy/operator.yaml
+```
+
+### Docker repository
+
+[https://hub.docker.com/r/kanaryoperator/operator](https://hub.docker.com/r/kanaryoperator/operator)
+
 ## How to use it
+
+### Quick bootstrap
+
+To easily create your first kanary CRD, you should use the plugin. Let's imagine you current deployment is named ***myapp*** and it is under the service ***myapp-svc***. Let's create a kanary CRD called ***superman***:
+
+```
+kubectl kanary generate myapp --name=superman --traffic=both --service=myapp-svc --validation-period=1m -oyaml
+```
+
+If you are a **Istio** user you will probably prefer to generate a validation based on success rate and/or P99:
+
+```
+kubectl kanary generate myapp --name=superman --traffic=both --service=myapp-svc --validation-period=1m  --validation-promql-istio-quantile="P99<310" --validation-promql-istio-success="0.95" -oyaml
+```
+
+
+### The spec blocks
 
 The `KanaryDeployment.Spec` is split in 4 different parts:
 

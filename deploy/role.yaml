@@ -10,10 +10,7 @@ rules:
   - pods
   - services
   - endpoints
-  - persistentvolumeclaims
-  - events
   - configmaps
-  - secrets
   verbs:
   - '*'
 - apiGroups:
@@ -26,9 +23,6 @@ rules:
   - apps
   resources:
   - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
   verbs:
   - '*'
 - apiGroups:
@@ -37,13 +31,6 @@ rules:
   - horizontalpodautoscalers
   verbs:
   - '*'
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
-  - get
-  - create
 - apiGroups:
   - kanary.k8s.io
   resources:
