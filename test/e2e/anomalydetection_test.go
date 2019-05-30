@@ -82,7 +82,7 @@ func PromqlInvalidation(t *testing.T) {
 			{
 				PromQL: &kanaryv1alpha1.KanaryDeploymentSpecValidationPromQL{
 					PrometheusService: "prometheus",
-					Query:             "(rate(mymetric_sum[10s])/rate(mymetric_count[10s]) and delta(mymetric_count[10s])>3)/scalar(sum(rate(mymetric_sum{kanary_k8s_io_canary_pod=\"false\"}[10s]))/sum(rate(mymetric_count{kanary_k8s_io_canary_pod=\"false\"}[10s])))",
+					Query:             "(rate(mymetric_sum[10s])/rate(mymetric_count[10s]) and delta(mymetric_count[10s])>3)/scalar(sum(rate(mymetric_sum{kanary_k8s_operators_dev_canary_pod=\"false\"}[10s]))/sum(rate(mymetric_count{kanary_k8s_operators_dev_canary_pod=\"false\"}[10s])))",
 					ContinuousValueDeviation: &kanaryv1alpha1.ContinuousValueDeviation{
 						MaxDeviationPercent: v1alpha1.NewFloat64(33),
 					},
