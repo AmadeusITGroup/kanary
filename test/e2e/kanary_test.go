@@ -48,7 +48,7 @@ func TestKanary(t *testing.T) {
 	kanaryList := &kanaryv1alpha1.KanaryDeploymentList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "KanaryDeployment",
-			APIVersion: "kanary.k8s.io/v1alpha1",
+			APIVersion: "kanary.k8s-operators.dev/v1alpha1",
 		},
 	}
 

@@ -246,7 +246,7 @@ spec:
 the following yaml file is an example of how you create a "basic" KanaryDeployment:
 
 ```yaml
-apiVersion: kanary.k8s.io/v1alpha1
+apiVersion: kanary.k8s-operators.dev/v1alpha1
 kind: KanaryDeployment
 metadata:
   name: nginx

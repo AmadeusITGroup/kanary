@@ -32,7 +32,7 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - kanary.k8s.io
+  - kanary.k8s-operators.dev
   resources:
   - '*'
   verbs:

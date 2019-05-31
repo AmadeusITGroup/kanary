@@ -305,18 +305,18 @@ type KanaryDeploymentAnnotationKeyType string
 
 const (
 	// MD5KanaryDeploymentAnnotationKey correspond to the annotation key for the deployment template md5 used to create the deployment.
-	MD5KanaryDeploymentAnnotationKey KanaryDeploymentAnnotationKeyType = "kanary.k8s.io/md5"
+	MD5KanaryDeploymentAnnotationKey KanaryDeploymentAnnotationKeyType = "kanary.k8s-operators.dev/md5"
 )
 
 const (
 	// KanaryDeploymentIsKanaryLabelKey correspond to the label key used on a deployment to inform
 	// that this instance is used in a canary deployment.
-	KanaryDeploymentIsKanaryLabelKey = "kanary.k8s.io/iskanary"
+	KanaryDeploymentIsKanaryLabelKey = "kanary.k8s-operators.dev/iskanary"
 	// KanaryDeploymentKanaryNameLabelKey correspond to the label key used on a deployment and pod to provide the KanaryDeployment name.
-	KanaryDeploymentKanaryNameLabelKey = "kanary.k8s.io/name"
+	KanaryDeploymentKanaryNameLabelKey = "kanary.k8s-operators.dev/name"
 	// KanaryDeploymentActivateLabelKey correspond to the label key used on a pod to inform that this
 	// Pod instance in a canary version of the application.
-	KanaryDeploymentActivateLabelKey = "kanary.k8s.io/canary-pod"
+	KanaryDeploymentActivateLabelKey = "kanary.k8s-operators.dev/canary-pod"
 	// KanaryDeploymentLabelValueTrue correspond to the label value True used with several Kanary label keys.
 	KanaryDeploymentLabelValueTrue = "true"
 	// KanaryDeploymentLabelValueFalse correspond to the label value False used with several Kanary label keys.
