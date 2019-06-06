@@ -35,6 +35,14 @@ func printVersion() {
 	log.Info(fmt.Sprintf("operator-sdk Version: %v", sdkVersion.Version))
 }
 
+func getCleanVersion(version string) (string, error) {
+    reg, err := regexp.Compile("[^0-9]+")
+    if err != nil {
+		return "", err
+    }
+	return reg.ReplaceAllString(version, ""), nil
+}
+
 func main() {
 	flag.Parse()
 
@@ -68,11 +76,11 @@ func main() {
 			os.Exit(1)
 		}
 		var major, minor int
-		if major, err = strconv.Atoi(serverVersion.Major); err != nil {
+		if major, err = strconv.Atoi(getCleanVersionserverVersion.Major); err != nil {
 			log.Error(err, "")
 			os.Exit(1)
 		}
-		if minor, err = strconv.Atoi(serverVersion.Minor); err != nil {
+		if minor, err = strconv.Atoi(getCleanVersion(serverVersion.Minor)); err != nil {
 			log.Error(err, "")
 			os.Exit(1)
 		}
