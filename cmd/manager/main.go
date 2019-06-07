@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"runtime"
 
 	"github.com/blang/semver"
@@ -34,6 +36,26 @@ func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("operator-sdk Version: %v", sdkVersion.Version))
+}
+
+func getSemverFromString(version string) (semver.Version, error) {
+	reg, err := regexp.Compile(`[^0-9\.]+`)
+	if err != nil {
+		return semver.Version{}, err
+	}
+	numericVersion := reg.ReplaceAllString(version, "")
+
+	reg, err = regexp.Compile(`^[0-9]+\.[0-9]+\.[0-9]`)
+	if err != nil {
+		return semver.Version{}, err
+	}
+	match := reg.FindStringSubmatch(numericVersion)
+
+	if len(match) < 1 {
+		return semver.Version{}, errors.New("version " + version + " is not semver compatible")
+	}
+	return semver.Make(match[0])
+
 }
 
 func main() {
@@ -73,7 +95,7 @@ func main() {
 			log.Error(err, "")
 			os.Exit(1)
 		}
-		currentServerVersion, err := semver.Make(serverVersion.String())
+		currentServerVersion, err := getSemverFromString(serverVersion.String())
 		if err != nil {
 			log.Error(err, "")
 			os.Exit(1)
