@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
+
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
-
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 
 	"k8s.io/apimachinery/pkg/version"
