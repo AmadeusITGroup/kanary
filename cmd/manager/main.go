@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strconv"
+	"strings"
+
+	"github.com/blang/semver"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -67,16 +69,17 @@ func main() {
 			log.Error(err, "")
 			os.Exit(1)
 		}
-		var major, minor int
-		if major, err = strconv.Atoi(serverVersion.Major); err != nil {
+		minServerVersion, err := semver.Make("1.10.0")
+		if err != nil {
 			log.Error(err, "")
 			os.Exit(1)
 		}
-		if minor, err = strconv.Atoi(serverVersion.Minor); err != nil {
+		currentServerVersion, err := semver.Make(strings.TrimPrefix(serverVersion.String(), "v"))
+		if err != nil {
 			log.Error(err, "")
 			os.Exit(1)
 		}
-		if major == 1 && minor < 10 { // (1.10+ : https://book.kubebuilder.io/basics/status_subresource.html )
+		if currentServerVersion.Compare(minServerVersion) < 0 {
 			if err = os.Setenv(kanaryConfig.KanaryStatusSubresourceDisabledEnvVar, "1"); err != nil {
 				log.Error(err, "")
 				os.Exit(1)
