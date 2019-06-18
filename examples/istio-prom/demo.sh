@@ -5,9 +5,13 @@
 # 2- install helm tiller        --> ./hack/install-helm-tiller.sh
 # 3- install istio              --> ./hack/install-istio.sh
 # 4- build the operator         --> make build && make TAG=latest KINDPUSH=true container
-# 5- build the simple-server    --> make KINDPUSH=true simple-server
-# 6- build the reverse-proxy    --> make reverse-proxy
-# 7- start reverse-proxy for grafana --> ./bin/reverse-proxy -svc grafana.example.com -port 8080
+# 5- build the plugin           --> make build-plugin    // ensure that the produced binary is accessible in $PATH
+# 6- build the simple-server    --> make KINDPUSH=true simple-server
+# 7- build the reverse-proxy    --> make reverse-proxy
+
+#Local port being used for the demo
+GRAFANA_REVERSE_PROXY=8080
+LOCAL80=30080
 
 DEMO_DIR="$(cd "$(dirname "${0}")" && pwd)"
 CURRENT=$PWD
@@ -50,6 +54,8 @@ function cleanup() {
   desc "Cleanup"
   desc "kill -9 ${portforwardPID} #Stopping PortForward"
   kill -9 ${portforwardPID}
+  desc "kill -9 ${reverseproxyPID} #Stopping ReverseProxy"
+  kill -9 ${reverseproxyPID}
   desc "kill -9 ${injectionPID} #Stopping injection"
   kill -9 ${injectionPID} 
   desc "kubectl delete ns $NAMESPACE #cleaning namespace"
@@ -61,10 +67,12 @@ trap cleanup EXIT
 kubectl delete pod -n istio-system -l app=prometheus > /dev/null 2>&1 &
 kubectl delete pod -n istio-system -l app=telemetry > /dev/null 2>&1 &
 
-LOCAL80=30080
 desc "running port forwarder to kind cluster $LOCAL80:80"
 kubectl port-forward -n istio-system service/istio-ingressgateway "$LOCAL80:80" > /dev/null 2>&1 &
 portforwardPID=$!
+desc "running reverse proxy on localhost:$GRAFANA_REVERSE_PROXY to target grafana.example.com"
+$ROOTDIR/bin/reverse-proxy -svc grafana.example.com -port "$GRAFANA_REVERSE_PROXY" > /dev/null 2>&1 &
+reverseproxyPID=$!
 
 #Starting the demo
 desc "Create a dedicated namespace"
@@ -95,7 +103,7 @@ injection &
 injectionPID=$!
 
 desc "Open Grafana Istio Dashboard" 
-DEMO_AUTO_RUN=1 run "# http://127.0.0.1:$LOCAL80  + Host modification plugin to match grafana.example.com"
+DEMO_AUTO_RUN=1 run "# http://127.0.0.1:$GRAFANA_REVERSE_PROXY"
 
 desc "Create a kanary with traffic=both and new version with response time degradation"
 desc "Let's look at the command, using kubectl plugin"

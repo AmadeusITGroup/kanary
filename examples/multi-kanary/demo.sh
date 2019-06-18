@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Prerequisit
+# 1- run the kind cluster       --> kind create cluster
+# 2- install helm tiller        --> ./hack/install-helm-tiller.sh
+# 3- install istio              --> ./hack/install-istio.sh
+# 4- build the operator         --> make build && make TAG=latest KINDPUSH=true container
+# 5- build the plugin           --> make build-plugin    // ensure that the produced binary is accessible in $PATH
+
+
 DEMO_DIR="$(cd "$(dirname "${0}")" && pwd)"
 CURRENT=$PWD
 
