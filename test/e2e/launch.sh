@@ -38,6 +38,6 @@ function killProxy {
 trap killProxy EXIT
 
 #run the test
-operator-sdk test local ./test/e2e --image kanaryoperator/operator:$TAG
+GO111MODULE=on operator-sdk test local ./test/e2e --image kanaryoperator/operator:$TAG
 
 
