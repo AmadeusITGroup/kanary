@@ -21,7 +21,7 @@ ${ARTIFACT_PLUGIN}: ${SOURCES}
 	CGO_ENABLED=0 GO111MODULE=on go build -mod vendor -i -installsuffix cgo -ldflags '-w' -o ${ARTIFACT_PLUGIN} ./cmd/kubectl-kanary/main.go
 
 container:
-	operator-sdk build $(PREFIX):$(TAG)
+	GO111MODULE=on operator-sdk build $(PREFIX):$(TAG)
     ifeq ($(KINDPUSH), true)
 	 kind load docker-image $(PREFIX):$(TAG)
     endif
