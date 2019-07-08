@@ -13,12 +13,12 @@ all: build
 build: ${ARTIFACT}
 
 ${ARTIFACT}: ${SOURCES}
-	CGO_ENABLED=0 go build -i -installsuffix cgo -ldflags '-w' -o ${ARTIFACT} ./cmd/manager/main.go
+	CGO_ENABLED=0 GO111MODULE=on go build -mod vendor -i -installsuffix cgo -ldflags '-w' -o ${ARTIFACT} ./cmd/manager/main.go
 
 build-plugin: ${ARTIFACT_PLUGIN}
 
 ${ARTIFACT_PLUGIN}: ${SOURCES}
-	CGO_ENABLED=0 go build -i -installsuffix cgo -ldflags '-w' -o ${ARTIFACT_PLUGIN} ./cmd/kubectl-kanary/main.go
+	CGO_ENABLED=0 GO111MODULE=on go build -mod vendor -i -installsuffix cgo -ldflags '-w' -o ${ARTIFACT_PLUGIN} ./cmd/kubectl-kanary/main.go
 
 container:
 	operator-sdk build $(PREFIX):$(TAG)
@@ -39,7 +39,7 @@ simple-server:
     endif
 
 reverse-proxy:
-	CGO_ENABLED=0 go build -i -installsuffix cgo -ldflags '-w' -o ./bin/reverse-proxy ./test/reverse-proxy/main.go
+	CGO_ENABLED=0 GO111MODULE=on go build -mod vendor -i -installsuffix cgo -ldflags '-w' -o ./bin/reverse-proxy ./test/reverse-proxy/main.go
 
 push: container
 	docker push $(PREFIX):$(TAG)
