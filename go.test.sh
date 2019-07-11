@@ -38,7 +38,7 @@ generate_cover_data() {
   for pkg in "${pkgs[@]}"; do
     f="${COVER}/$(echo $pkg | tr / -).cover"
     tout="${COVER}/$(echo $pkg | tr / -)_tests.out"
-    go test $verbose $race_flag -covermode="$mode" -coverprofile="$f" "$pkg" | tee "$tout"
+    GO111MODULE=on go test -mod vendor $verbose $race_flag -covermode="$mode" -coverprofile="$f" "$pkg" | tee "$tout"
     for status in $PIPESTATUS; do
       if [ "$status" != "0" ]; then
         exit_code=1
