@@ -1,3 +1,5 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
 reviewers:
 - lavalamp
 - smarterclayton
@@ -15,7 +17,6 @@ reviewers:
 - saad-ali
 - luxas
 - yifan-gu
-- eparis
 - mwielgus
 - timothysc
 - jsafrane
