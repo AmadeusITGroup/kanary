@@ -1,3 +1,5 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
 approvers:
 - mikedanese
 - timothysc
@@ -6,8 +8,6 @@ reviewers:
 - deads2k
 - mikedanese
 - gmarek
-- eparis
 - timothysc
 - ingvagabund
 - resouer
-- goltermann
